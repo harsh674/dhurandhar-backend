@@ -1,15 +1,8 @@
 const ApiError = require("../utils/ApiError");
 
+// Centralised error handler — last middleware
 // eslint-disable-next-line no-unused-vars
 module.exports = function errorHandler(err, req, res, _next) {
-
-  console.error("========== ERROR START ==========");
-  console.error("URL:", req.originalUrl);
-  console.error("METHOD:", req.method);
-  console.error("ERROR:", err);
-  console.error("STACK:", err.stack);
-  console.error("========== ERROR END ==========");
-
   let status = err.statusCode || 500;
   let message = err.message || "Internal server error";
   let details = err.details;
@@ -27,13 +20,12 @@ module.exports = function errorHandler(err, req, res, _next) {
     message = `Invalid ${err.path}`;
   }
 
-  res.status(status).json({
-    success: false,
-    message,
-    code: status,
-    details,
-    stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
-  });
+  if (status >= 500) {
+    // eslint-disable-next-line no-console
+    console.error("[error]", err);
+  }
+
+  res.status(status).json({ success: false, message, code: status, details });
 };
 
 module.exports.notFound = (req, _res, next) =>

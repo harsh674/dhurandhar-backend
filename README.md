@@ -1,6 +1,6 @@
-# ServiQ Backend
+# Dhurandhar Backend
 
-Production-ready Node.js + Express + MongoDB backend for **ServiQ** — a WhatsApp-first hyperlocal services marketplace (plumbers, electricians, AC techs, mechanics, cleaners, carpenters, repair pros).
+Production-ready Node.js + Express + MongoDB backend for **Dhurandhar** — a WhatsApp-first hyperlocal services marketplace (plumbers, electricians, AC techs, mechanics, cleaners, carpenters, repair pros).
 
 ## Stack
 
@@ -21,7 +21,7 @@ npm run seed               # optional: seed admin + services + sample data
 npm run dev                # http://localhost:5000
 ```
 
-Default admin (after seed): `admin@serviq.in` / `Admin@123`
+Default admin (after seed): `admin@Dhurandhar.in` / `Admin@123`
 
 ## Folder structure
 
@@ -104,7 +104,7 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:5000/api/v1",
 });
 api.interceptors.request.use((c) => {
-  const t = localStorage.getItem("serviq_token");
+  const t = localStorage.getItem("Dhurandhar_token");
   if (t) c.headers.Authorization = `Bearer ${t}`;
   return c;
 });

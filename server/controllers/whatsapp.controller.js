@@ -18,7 +18,12 @@ exports.verify = (req, res) => {
     return res.sendStatus(403);
   }
 
-  res.status(200).send(challenge);
+  // 1. Force the response header to be pure plain text
+  res.setHeader('Content-Type', 'text/plain');
+
+  // 2. Wrap challenge in String() to prevent Express status code casting crashes
+  // 3. Use end() to cleanly terminate the stream with nothing but the raw string value
+  return res.status(200).end(String(challenge));
 };
 
 exports.incoming = asyncHandler(async (req, res) => {

@@ -2,10 +2,22 @@ const asyncHandler = require("../utils/asyncHandler");
 const wa = require("../services/whatsapp.service");
 const flow = require("../services/whatsappFlow.service");
 const { ok } = require("../helpers/response");
+const env = require("../config/env");
 
 exports.verify = (req, res) => {
-  const challenge = wa.verifyWebhook(req.query);
-  if (!challenge) return res.sendStatus(403);
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+  const expected = env.whatsapp.verifyToken;
+
+  const okVerify = mode === "subscribe" && token === expected;
+  if (!okVerify) {
+    console.warn(
+      `[wa:verify] failed — mode=${mode} tokenMatches=${token === expected} expectedSet=${Boolean(expected)}`
+    );
+    return res.sendStatus(403);
+  }
+
   res.status(200).send(challenge);
 };
 

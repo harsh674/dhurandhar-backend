@@ -19,7 +19,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 // CORS — build an allowlist from env and a default set; use function to validate
-const DEFAULT_ALLOWED = ["http://localhost:5173", "https://iamserviq.netlify.app"];
+const DEFAULT_ALLOWED = ["http://localhost:5173", "https://iamserviq.netlify.app/"];
 const allowedOrigins = Array.from(new Set([...(env.corsOrigins || []), ...DEFAULT_ALLOWED]));
 
 const corsOptions = {

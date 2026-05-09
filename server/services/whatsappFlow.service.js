@@ -31,8 +31,33 @@ async function handleIncoming(payload, io) {
       return wa.sendText(phone, SERVICE_PROMPT);
     }
     case "ASK_SERVICE": {
-      const service = await Service.findOne({ serviceName: new RegExp(text, "i") });
+      console.log('[wa-flow] ASK_SERVICE recv', { phone, text });
+      let service = null;
+
+      // If user replies with a number (menu selection), map to available services
+      if (/^\d+$/.test(text)) {
+        const idx = parseInt(text, 10);
+        const services = await Service.find().sort({ createdAt: 1 });
+        if (idx >= 1 && idx <= services.length) service = services[idx - 1];
+      }
+
+      // Direct name match (case-insensitive / regex)
+      if (!service) {
+        service = await Service.findOne({ serviceName: new RegExp(text, "i") });
+      }
+
+      // Fuzzy fallback: substring matches or partial comparisons
+      if (!service) {
+        const services = await Service.find();
+        const t = text.toLowerCase();
+        service = services.find((s) => {
+          const name = s.serviceName.toLowerCase();
+          return name.includes(t) || t.includes(name.slice(0, 4));
+        });
+      }
+
       if (!service) return wa.sendText(phone, "Sorry, I didn't catch that.\n" + SERVICE_PROMPT);
+
       session.draft.serviceId = service.id;
       session.draft.serviceName = service.serviceName;
       session.step = "ASK_ISSUE";
@@ -65,27 +90,38 @@ async function handleIncoming(payload, io) {
       );
     }
     case "CONFIRM": {
+      console.log('[wa-flow] CONFIRM recv', { phone, text, draft: session.draft });
       if (!/^yes$/i.test(text)) {
         session.step = "IDLE";
         session.draft = {};
         await session.save();
         return wa.sendText(phone, "Booking cancelled. Send 'hi' to start again.");
       }
-      const booking = await bookingService.createBooking(
-        {
-          customer: { phone },
-          serviceId: session.draft.serviceId,
-          issueType: session.draft.issueType,
-          urgency: session.draft.urgency,
-          address: session.draft.address,
-          source: "whatsapp",
-        },
-        io
-      );
-      session.step = "IDLE";
-      session.draft = {};
-      await session.save();
-      return wa.sendText(phone, `✅ Booking confirmed! Your reference: ${booking.code}. We'll assign a pro shortly.`);
+
+      try {
+        const booking = await bookingService.createBooking(
+          {
+            customer: { phone },
+            serviceId: session.draft.serviceId,
+            issueType: session.draft.issueType,
+            urgency: session.draft.urgency,
+            address: session.draft.address,
+            source: "whatsapp",
+          },
+          io
+        );
+
+        console.log('[wa-flow] booking created', { bookingId: booking.id, code: booking.code });
+
+        session.step = "IDLE";
+        session.draft = {};
+        await session.save();
+        return wa.sendText(phone, `✅ Booking confirmed! Your reference: ${booking.code}. We'll assign a pro shortly.`);
+      } catch (err) {
+        console.error('[wa-flow] booking creation failed', { err: err && err.message, draft: session.draft });
+        // Keep session as CONFIRM to let user retry or cancel
+        return wa.sendText(phone, "Sorry, we couldn't create your booking right now. Please try again later.");
+      }
     }
     default:
       session.step = "IDLE";

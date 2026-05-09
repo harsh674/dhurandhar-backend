@@ -34,7 +34,7 @@ exports.incoming = asyncHandler(async (req, res) => {
   const io = req.app.get("io");
   // Log summary for debugging; return 200 quickly so Meta doesn't retry.
   try {
-    console.log('[wa:incoming] recv', {
+    console.error('[wa:incoming] recv', {
       query: req.query,
       headers: { 'x-vercel-protection-bypass': req.headers['x-vercel-protection-bypass'] },
       entry: Array.isArray(req.body?.entry) ? req.body.entry.length : undefined,

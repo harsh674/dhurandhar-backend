@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server/app.js",
     "dev": "nodemon server/app.js",
+    "build": "echo \"No build step for backend\"",
     "seed": "node server/jobs/seed.js"
   },
   "dependencies": {

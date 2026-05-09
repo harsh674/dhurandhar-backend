@@ -18,22 +18,11 @@ const app = express();
 // Required behind Vercel / proxies for correct IPs and rate-limit
 app.set("trust proxy", 1);
 
-// CORS — build an allowlist from env and a default set; use function to validate
-const DEFAULT_ALLOWED = ["http://localhost:5173", "https://iamserviq.netlify.app"];
-const allowedOrigins = Array.from(new Set([...(env.corsOrigins || []), ...DEFAULT_ALLOWED]));
-
-const corsOptions = {
-  origin(origin, cb) {
-      console.log("Incoming origin:", origin);
-    // allow server-to-server requests (no origin) or explicit allowlist
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-};
-
 app.use(helmet());
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
@@ -66,7 +55,7 @@ app.use(errorHandler);
 // Vercel serverless functions do NOT support websockets — sockets are skipped there.
 const server = http.createServer(app);
 if (!process.env.VERCEL) {
-  const io = new IOServer(server, { cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true } });
+  const io = new IOServer(server, { cors: { origin: true, methods: ["GET", "POST"], credentials: true } });
   registerSockets(io);
   app.set("io", io);
 }

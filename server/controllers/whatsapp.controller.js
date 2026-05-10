@@ -43,11 +43,18 @@ exports.incoming = asyncHandler(async (req, res) => {
     console.error('[wa:incoming] log-failure', e);
   }
 
-  res.sendStatus(200);
-  flow
-    .handleIncoming(req.body, io)
-    .then(() => console.log('[wa:incoming] processed'))
-    .catch((e) => console.error('[wa-flow]', e));
+  try {
+    // Wait for the flow to finish its asynchronous work (sends, DB updates)
+    await flow.handleIncoming(req.body, io);
+    console.log('[wa:incoming] processed');
+  } catch (e) {
+    console.error('[wa-flow]', e.response?.data || e.message || e);
+  }
+
+  // Always acknowledge Meta with 200 after async work completes (or failed)
+  // Returning 200 prevents retries while ensuring any outbound API calls
+  // had a chance to finish before Vercel tears down the function.
+  res.status(200).send('EVENT_RECEIVED');
 });
 
 exports.send = asyncHandler(async (req, res) => {

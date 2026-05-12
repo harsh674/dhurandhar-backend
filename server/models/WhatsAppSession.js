@@ -24,6 +24,8 @@ const waSessionSchema = new mongoose.Schema(
         "CONFIRM",
         "VIEW_ACTIVE_BOOKINGS",
         "AWAIT_CANCEL_CONFIRM",
+        "AWAIT_FEEDBACK_RATING",
+        "AWAIT_FEEDBACK_REVIEW",
       ],
 
       default: "IDLE",
@@ -68,10 +70,7 @@ const waSessionSchema = new mongoose.Schema(
 
   {
     timestamps: true,
-  }
+  },
 );
 
-module.exports = mongoose.model(
-  "WhatsAppSession",
-  waSessionSchema
-);
+module.exports = mongoose.model("WhatsAppSession", waSessionSchema);

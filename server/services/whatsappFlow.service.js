@@ -102,13 +102,30 @@ async function sendActiveBookingsList(phone) {
 }
 
 async function sendBookingActions(phone, booking) {
+  // Logic: Show Feedback option only if booking is COMPLETED
+  const buttons = [
+    { id: "BACK_TO_BOOKINGS", title: "⬅ Back" }
+  ];
+
+  if (booking.status === "COMPLETED") {
+    buttons.unshift({ id: "INIT_FEEDBACK", title: "Give Feedback" });
+  } else {
+    buttons.unshift({ id: "CONFIRM_CANCEL_BOOKING", title: "Cancel Booking" });
+  }
+
   return wa.sendButtons(phone, {
-    body: `Booking: ${booking.code}\nService: ${booking.serviceName}\nStatus: ${booking.status}\nAddress: ${
-      booking.address?.line1 || "-"
-    }`,
+    body: `Booking: ${booking.code}\nService: ${booking.serviceName}\nStatus: ${booking.status}\nAddress: ${booking.address?.line1 || "-"}`,
+    buttons: buttons
+  });
+}
+
+async function sendRatingButtons(phone) {
+  return wa.sendButtons(phone, {
+    body: "How was your experience with our service?",
     buttons: [
-      { id: "CONFIRM_CANCEL_BOOKING", title: "Cancel Booking" },
-      { id: "BACK_TO_BOOKINGS", title: "⬅ Back" },
+      { id: "RATING_5", title: "Very Satisfied" },
+      { id: "RATING_3", title: "Satisfied" },
+      { id: "RATING_1", title: "Unsatisfied" },
     ],
   });
 }
@@ -227,21 +244,110 @@ if (
   switch (session.step) {
     case "IDLE":
     case "START": {
-      if (incomingValue === "VIEW_SERVICES") {
-        session.step = "ASK_SERVICE";
-        await session.save();
-        return sendServiceList(phone);
-      }
+        if (incomingValue === "VIEW_SERVICES") {
+          session.step = "ASK_SERVICE";
+          await session.save();
+          return sendServiceList(phone);
+        }
+        if (incomingValue === "CHECK_ACTIVE_BOOKING") {
+          session.step = "VIEW_ACTIVE_BOOKINGS";
+          await session.save();
+          // Updated to show COMPLETED bookings too so they can give feedback
+          const items = await Booking.find({
+            "customerSnapshot.phone": phone,
+            status: { $in: ["NEW", "ASSIGNED", "ACCEPTED", "ON_THE_WAY", "STARTED", "COMPLETED"] },
+          }).sort({ createdAt: -1 }).limit(10);
+          
+          if (!items.length) return wa.sendText(phone, "No recent bookings found.");
+          
+          const rows = items.map((b) => ({
+            id: b._id.toString(),
+            title: b.code,
+            description: `${b.serviceName} — ${b.status}`,
+          }));
 
-      if (incomingValue === "CHECK_ACTIVE_BOOKING") {
-        session.step = "VIEW_ACTIVE_BOOKINGS";
+          return wa.sendList(phone, {
+            body: "Select a booking:",
+            buttonText: "View Bookings",
+            sections: [{ title: "Recent Bookings", rows }],
+          });
+        }
+        return sendWelcomeMenu(phone);
+    }
+    case "VIEW_ACTIVE_BOOKINGS": {
+      if (incomingValue && /^[0-9a-fA-F]{24}$/.test(incomingValue)) {
+        const booking = await Booking.findById(incomingValue);
+        if (!booking) return sendWelcomeMenu(phone);
+        
+        session.draft.bookingId = booking._id;
+        session.step = "AWAIT_CANCEL_CONFIRM"; // This step handles the Detail View
         await session.save();
-        return sendActiveBookingsList(phone);
+        return sendBookingActions(phone, booking);
       }
-
       return sendWelcomeMenu(phone);
     }
 
+    case "AWAIT_CANCEL_CONFIRM": {
+      if (incomingValue === "BACK_TO_BOOKINGS") {
+        session.step = "START"; // Return to main to refresh list
+        await session.save();
+        return sendWelcomeMenu(phone);
+      }
+
+      // FEEDBACK INITIATION
+      if (incomingValue === "INIT_FEEDBACK") {
+        session.step = "AWAIT_FEEDBACK_RATING";
+        await session.save();
+        return sendRatingButtons(phone);
+      }
+
+      if (incomingValue === "CONFIRM_CANCEL_BOOKING") {
+        try {
+          await bookingService.cancel(session.draft.bookingId, "Cancelled by user", "customer");
+          session.step = "START";
+          await session.save();
+          return wa.sendText(phone, "✅ Booking cancelled.");
+        } catch (e) { return wa.sendText(phone, "Error cancelling."); }
+      }
+      return sendWelcomeMenu(phone);
+    }
+
+    case "AWAIT_FEEDBACK_RATING": {
+      const ratingMap = { "RATING_5": 5, "RATING_3": 3, "RATING_1": 1 };
+      const rating = ratingMap[incomingValue];
+      
+      if (!rating) return sendRatingButtons(phone);
+
+      session.draft.rating = rating;
+      session.step = "AWAIT_FEEDBACK_REVIEW";
+      await session.save();
+
+      return wa.sendButtons(phone, {
+        body: "Would you like to write a short review? Or click Skip to finish.",
+        buttons: [{ id: "SKIP_REVIEW", title: "Skip & Send" }]
+      });
+    }
+
+    case "AWAIT_FEEDBACK_REVIEW": {
+      const reviewText = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
+
+      try {
+        await Feedback.create({
+          fk_booking_id: session.draft.bookingId,
+          user_whatsapp_number: phone,
+          rating: session.draft.rating,
+          review: reviewText
+        });
+
+        session.step = "START";
+        session.draft = {};
+        await session.save();
+        return wa.sendText(phone, "Thank you! Your feedback has been saved. 🙏");
+      } catch (err) {
+        console.error("Feedback Save Error:", err);
+        return wa.sendText(phone, "Sorry, there was an error saving your feedback.");
+      }
+    }
     case "ASK_SERVICE": {
       console.log("[wa-flow] ASK_SERVICE recv", {
         phone,

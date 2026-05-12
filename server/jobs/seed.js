@@ -8,6 +8,7 @@ const Service = require("../models/Service");
 const Technician = require("../models/Technician");
 const Customer = require("../models/Customer");
 const Booking = require("../models/Booking");
+const Feedback = require("../models/Feedback");
 const { BOOKING_STATUS, PAYMENT_STATUS, URGENCY } = require("../constants");
 
 const SERVICES = [
@@ -25,7 +26,14 @@ const SERVICES = [
 
 async function run() {
   await connectDB();
-  await Promise.all([Admin.deleteMany({}), Service.deleteMany({}), Technician.deleteMany({}), Customer.deleteMany({}), Booking.deleteMany({})]);
+  await Promise.all([
+    Admin.deleteMany({}),
+    Service.deleteMany({}),
+    Technician.deleteMany({}),
+    Customer.deleteMany({}),
+    Booking.deleteMany({}),
+    Feedback.deleteMany({}),
+  ]);
 
   const admin = await Admin.create({ name: "Aditya Roy", email: "admin@serviq.in", password: "Admin@123", role: "superadmin" });
   const services = await Service.insertMany(SERVICES);
@@ -43,6 +51,17 @@ async function run() {
     visitCharge: 99, estimatedAmount: 99, status: BOOKING_STATUS.NEW, paymentStatus: PAYMENT_STATUS.PENDING,
     timeline: [{ status: BOOKING_STATUS.NEW, by: "seed", note: "Seed booking" }],
   });
+
+  // Create a sample feedback for the seeded booking
+  const seededBooking = await Booking.findOne({ code: 'SQ-10001' });
+  if (seededBooking) {
+    await Feedback.create({
+      fk_booking_id: seededBooking._id,
+      user_whatsapp_number: cust.phone,
+      rating: 5,
+      review: 'Sample feedback created by seed script',
+    });
+  }
 
   // eslint-disable-next-line no-console
   console.log("[seed] done — admin:", admin.email, "/ password: Admin@123");

@@ -93,6 +93,24 @@ async function sendConfirmationButtons(phone, draft) {
   });
 }
 
+async function sendLocationOptions(phone) {
+  return wa.sendButtons(phone, {
+    body:
+      "📍 Choose how you'd like to share your location",
+
+    buttons: [
+      {
+        id: "SHARE_LOCATION",
+        title: "Current Location",
+      },
+      {
+        id: "MANUAL_ADDRESS",
+        title: "Enter Address",
+      },
+    ],
+  });
+}
+
 async function handleIncoming(payload, io) {
   const msg =
     payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
@@ -113,25 +131,6 @@ async function handleIncoming(payload, io) {
 
       return sendServiceList(phone);
     }
-
-      async function sendLocationOptions(phone) {
-
-  return wa.sendButtons(phone, {
-    body:
-      "📍 Choose how you'd like to share your location",
-
-    buttons: [
-      {
-        id: "SHARE_LOCATION",
-        title: "Current Location",
-      },
-      {
-        id: "MANUAL_ADDRESS",
-        title: "Enter Address",
-      },
-    ],
-  });
-}
 
    case "ASK_SERVICE": {
   console.log("[wa-flow] ASK_SERVICE recv", {
@@ -202,6 +201,15 @@ async function handleIncoming(payload, io) {
 
    case "ASK_LOCATION": {
 
+  // User clicked current location button
+  if (incomingValue === "SHARE_LOCATION") {
+
+    return wa.sendText(
+      phone,
+      "📍 Please tap the attachment icon 📎 in WhatsApp and send your current location."
+    );
+  }
+
   // User shared actual WhatsApp location
   if (msg.location) {
 
@@ -236,7 +244,7 @@ async function handleIncoming(payload, io) {
     );
   }
 
-  // Default location request message
+  // Fallback
   return sendLocationOptions(phone);
 }
 

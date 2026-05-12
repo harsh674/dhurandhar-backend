@@ -362,12 +362,7 @@ async function handleIncoming(payload, io) {
       const review = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
 
       // LOG THIS: Check your console to see if rating is actually here
-      console.log(
-        "Saving Feedback - Rating:",
-        session.draft.rating,
-        "Review:",
-        reviewText,
-      );
+      console.log("Saving Feedback - Rating:", session.draft.rating);
 
       // Pull the rating back out of the draft
       const savedRating = session.draft.rating;

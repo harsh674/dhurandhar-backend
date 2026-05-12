@@ -4,19 +4,14 @@ const Booking = require("../models/Booking");
 const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
+if (["hi", "hello", "start", "menu", "restart"].includes(normalized)) {
+  session.step = "MAIN_MENU";
 
-async function getOrCreateSession(phone) {
-  let s = await Session.findOne({ phone });
+  session.draft = {};
 
-  if (!s) {
-    s = await Session.create({
-      phone,
-      step: "IDLE",
-      draft: {},
-    });
-  }
+  await session.save();
 
-  return s;
+  return sendMainMenu(phone);
 }
 
 function extractMessage(msg) {
@@ -41,22 +36,28 @@ async function sendServiceList(phone) {
   }));
 
   return wa.sendList(phone, {
-    body: "👋 Welcome to ServiQ\nSelect the service you need",
+    body: "Select the service you need",
     buttonText: "View Services",
     sections: [
       {
-        title: "Account",
-        rows: [
-          {
-            id: "CHECK_ACTIVE_BOOKING",
-            title: "Check active bookings",
-            description: "View and manage your current bookings",
-          },
-        ],
-      },
-      {
         title: "Available Services",
         rows,
+      },
+    ],
+  });
+}
+
+async function sendMainMenu(phone) {
+  return wa.sendList(phone, {
+    body: "👋 Welcome to ServiQ — how can we help you today?",
+    buttonText: "Choose an option",
+    sections: [
+      {
+        title: "Main",
+        rows: [
+          { id: "CHECK_ACTIVE_BOOKING", title: "Check active bookings", description: "View and manage current bookings" },
+          { id: "VIEW_SERVICES", title: "View services", description: "Browse available services and book" },
+        ],
       },
     ],
   });
@@ -204,11 +205,30 @@ async function handleIncoming(payload, io) {
 
   switch (session.step) {
     case "IDLE": {
-      session.step = "ASK_SERVICE";
+      session.step = "MAIN_MENU";
 
       await session.save();
 
-      return sendServiceList(phone);
+      return sendMainMenu(phone);
+    }
+
+    case "MAIN_MENU": {
+      // User selected main menu option
+      if (incomingValue === "CHECK_ACTIVE_BOOKING") {
+        session.step = "VIEW_ACTIVE_BOOKINGS";
+        session.draft = {};
+        await session.save();
+        return sendActiveBookingsList(phone);
+      }
+
+      if (incomingValue === "VIEW_SERVICES") {
+        session.step = "ASK_SERVICE";
+        session.draft = {};
+        await session.save();
+        return sendServiceList(phone);
+      }
+
+      return sendMainMenu(phone);
     }
 
     case "ASK_SERVICE": {

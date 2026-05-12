@@ -4,156 +4,288 @@ const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
 
-/**
- * Note: WhatsApp Interactive messages have specific limits:
- * - List Messages: Up to 10 rows.
- * - Reply Buttons: Up to 3 buttons.
- */
-
 async function getOrCreateSession(phone) {
   let s = await Session.findOne({ phone });
-  if (!s) s = await Session.create({ phone, step: "IDLE", draft: {} });
+
+  if (!s) {
+    s = await Session.create({
+      phone,
+      step: "IDLE",
+      draft: {},
+    });
+  }
+
   return s;
 }
 
+function extractMessage(msg) {
+  if (msg?.interactive?.list_reply) {
+    return msg.interactive.list_reply.id;
+  }
+
+  if (msg?.interactive?.button_reply) {
+    return msg.interactive.button_reply.id;
+  }
+
+  return (msg?.text?.body || "").trim();
+}
+
+async function sendServiceList(phone) {
+  const services = await Service.find().sort({ createdAt: 1 });
+
+  const rows = services.map((s) => ({
+    id: s._id.toString(),
+    title: s.serviceName,
+    description: `Book ${s.serviceName} service`,
+  }));
+
+  return wa.sendList(phone, {
+    body: "👋 Welcome to ServiQ\nSelect the service you need",
+    buttonText: "View Services",
+    sections: [
+      {
+        title: "Available Services",
+        rows,
+      },
+    ],
+  });
+}
+
+async function sendUrgencyButtons(phone) {
+  return wa.sendButtons(phone, {
+    body: "How urgent is your issue?",
+    buttons: [
+      {
+        id: "LOW",
+        title: "LOW",
+      },
+      {
+        id: "NORMAL",
+        title: "NORMAL",
+      },
+      {
+        id: "HIGH",
+        title: "HIGH",
+      },
+    ],
+  });
+}
+
+async function sendConfirmationButtons(phone, draft) {
+  return wa.sendButtons(phone, {
+    body:
+      `Confirm your booking:\n\n` +
+      `Service: ${draft.serviceName}\n` +
+      `Issue: ${draft.issueType}\n` +
+      `Urgency: ${draft.urgency}\n` +
+      `Address: ${draft.address.line1}`,
+
+    buttons: [
+      {
+        id: "CONFIRM_BOOKING",
+        title: "Confirm",
+      },
+      {
+        id: "CANCEL_BOOKING",
+        title: "Cancel",
+      },
+    ],
+  });
+}
+
 async function handleIncoming(payload, io) {
-  const msg = payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const msg =
+    payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
   if (!msg) return;
 
   const phone = msg.from;
-  let text = "";
 
-  // Extract text from standard message OR interactive button/list selection
-  if (msg.type === "text") {
-    text = (msg.text?.body || "").trim();
-  } else if (msg.type === "interactive") {
-    const interactive = msg.interactive;
-    text = interactive.button_reply?.title || interactive.list_reply?.title || "";
-    // We can also use IDs if you set them in the template: interactive.list_reply?.id
-  }
+  const incomingValue = extractMessage(msg);
 
   const session = await getOrCreateSession(phone);
 
   switch (session.step) {
     case "IDLE": {
       session.step = "ASK_SERVICE";
+
       await session.save();
 
-      const services = await Service.find().sort({ createdAt: 1 }).limit(10);
-      const rows = services.map((s, idx) => ({
-        id: s.id,
-        title: s.serviceName,
-        description: `Book a professional ${s.serviceName}`
-      }));
-
-      return wa.sendInteractive(phone, {
-        type: "list",
-        header: "ServiQ Booking",
-        body: "Hi 👋 Welcome to ServiQ. Please select the service you need:",
-        footer: "Powered by ServiQ",
-        button: "View Services",
-        sections: [{ title: "Available Services", rows }]
-      });
+      return sendServiceList(phone);
     }
 
     case "ASK_SERVICE": {
-      let service = await Service.findOne({ serviceName: new RegExp(`^${text}$`, "i") });
+      console.log("[wa-flow] ASK_SERVICE recv", {
+        phone,
+        incomingValue,
+      });
 
-      // Fallback for manual typing
+      let service = null;
+
+      // Interactive list selection
+      service = await Service.findById(incomingValue);
+
+      // fallback text matching
       if (!service) {
-        service = await Service.findOne({ serviceName: new RegExp(text, "i") });
+        service = await Service.findOne({
+          serviceName: new RegExp(incomingValue, "i"),
+        });
       }
 
       if (!service) {
-        return wa.sendText(phone, "Sorry, please select a service from the list provided.");
+        return sendServiceList(phone);
       }
 
-      session.draft.serviceId = service.id;
+      session.draft.serviceId = service._id;
       session.draft.serviceName = service.serviceName;
+
       session.step = "ASK_ISSUE";
+
       await session.save();
-      return wa.sendText(phone, `Got it — ${service.serviceName}. Briefly describe the issue:`);
+
+      return wa.sendText(
+        phone,
+        `Got it 👍\nPlease briefly describe your issue with ${service.serviceName}.`
+      );
     }
 
     case "ASK_ISSUE": {
-      session.draft.issueType = text;
+      session.draft.issueType = incomingValue;
+
       session.step = "ASK_URGENCY";
+
       await session.save();
 
-      return wa.sendInteractive(phone, {
-        type: "button",
-        body: "How urgent is this request?",
-        buttons: [
-          { id: "URG_HIGH", title: "HIGH" },
-          { id: "URG_NORMAL", title: "NORMAL" },
-          { id: "URG_LOW", title: "LOW" }
-        ]
-      });
+      return sendUrgencyButtons(phone);
     }
 
     case "ASK_URGENCY": {
-      const u = text.toUpperCase();
-      if (!Object.values(URGENCY).includes(u)) {
-        return wa.sendText(phone, "Please use the buttons to select urgency.");
+      const urgency = incomingValue.toUpperCase();
+
+      if (!Object.values(URGENCY).includes(urgency)) {
+        return sendUrgencyButtons(phone);
       }
-      session.draft.urgency = u;
+
+      session.draft.urgency = urgency;
+
       session.step = "ASK_LOCATION";
+
       await session.save();
-      return wa.sendText(phone, "Share your address with pincode (e.g., '12 MG Road, 560001').");
+
+      return wa.sendText(
+        phone,
+        "📍 Please share your full address with pincode.\nExample:\n12 MG Road, Bangalore 560001"
+      );
     }
 
     case "ASK_LOCATION": {
-      const pin = (text.match(/\b\d{4,8}\b/) || [])[0];
-      if (!pin) return wa.sendText(phone, "Please include a pincode in the address.");
-      
-      session.draft.address = { line1: text, pincode: pin };
+      const pin =
+        (incomingValue.match(/\b\d{4,8}\b/) || [])[0];
+
+      if (!pin) {
+        return wa.sendText(
+          phone,
+          "Please include a valid pincode."
+        );
+      }
+
+      session.draft.address = {
+        line1: incomingValue,
+        pincode: pin,
+      };
+
       session.step = "CONFIRM";
+
       await session.save();
 
-      return wa.sendInteractive(phone, {
-        type: "button",
-        body: `Confirm booking?\n\n🛠 *Service:* ${session.draft.serviceName}\n📝 *Issue:* ${session.draft.issueType}\n🚨 *Urgency:* ${session.draft.urgency}\n📍 *Address:* ${text}`,
-        buttons: [
-          { id: "CONFIRM_YES", title: "YES" },
-          { id: "CONFIRM_NO", title: "Cancel" }
-        ]
-      });
+      return sendConfirmationButtons(
+        phone,
+        session.draft
+      );
     }
 
     case "CONFIRM": {
-      if (!/^yes$/i.test(text)) {
+      console.log("[wa-flow] CONFIRM recv", {
+        phone,
+        incomingValue,
+      });
+
+      if (incomingValue === "CANCEL_BOOKING") {
         session.step = "IDLE";
         session.draft = {};
+
         await session.save();
-        return wa.sendText(phone, "Booking cancelled. Send 'hi' to start again.");
+
+        return wa.sendText(
+          phone,
+          "❌ Booking cancelled.\nSend Hi to start again."
+        );
+      }
+
+      if (incomingValue !== "CONFIRM_BOOKING") {
+        return sendConfirmationButtons(
+          phone,
+          session.draft
+        );
       }
 
       try {
-        const booking = await bookingService.createBooking(
-          {
-            customer: { phone },
-            serviceId: session.draft.serviceId,
-            issueType: session.draft.issueType,
-            urgency: session.draft.urgency,
-            address: session.draft.address,
-            source: "whatsapp",
-          },
-          io
-        );
+        const booking =
+          await bookingService.createBooking(
+            {
+              customer: { phone },
+
+              serviceId:
+                session.draft.serviceId,
+
+              issueType:
+                session.draft.issueType,
+
+              urgency:
+                session.draft.urgency,
+
+              address:
+                session.draft.address,
+
+              source: "whatsapp",
+            },
+            io
+          );
+
+        console.log("[wa-flow] booking created", {
+          bookingId: booking.id,
+          code: booking.code,
+        });
 
         session.step = "IDLE";
         session.draft = {};
+
         await session.save();
-        return wa.sendText(phone, `✅ *Booking confirmed!*\n\nReference: ${booking.code}\nWe'll assign a pro shortly.`);
+
+        return wa.sendText(
+          phone,
+          `✅ Booking confirmed!\nReference ID: ${booking.code}\nWe'll assign a professional shortly.`
+        );
       } catch (err) {
-        return wa.sendText(phone, "Sorry, we couldn't create your booking. Please try again.");
+        console.error(
+          "[wa-flow] booking creation failed",
+          err
+        );
+
+        return wa.sendText(
+          phone,
+          "Sorry, booking failed right now. Please try again later."
+        );
       }
     }
 
-    default:
+    default: {
       session.step = "IDLE";
+
       await session.save();
-      return wa.sendText(phone, "Session reset. Type 'hi' to begin.");
+
+      return sendServiceList(phone);
+    }
   }
 }
 

@@ -361,13 +361,21 @@ async function handleIncoming(payload, io) {
     case "AWAIT_FEEDBACK_REVIEW": {
       const review = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
 
+      // LOG THIS: Check your console to see if rating is actually here
+      console.log(
+        "Saving Feedback - Rating:",
+        session.draft.rating,
+        "Review:",
+        reviewText,
+      );
+
       // Pull the rating back out of the draft
       const savedRating = session.draft.rating;
 
       await Feedback.create({
         fk_booking_id: session.draft.bookingId,
         user_whatsapp_number: phone,
-        rating: savedRating, // This will now have the value
+        rating: Number(savedRating), // This will now have the value
         review: review,
       });
 

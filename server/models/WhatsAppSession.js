@@ -6,19 +6,7 @@ const waSessionSchema = new mongoose.Schema(
     phone: { type: String, required: true, unique: true, index: true },
     step: {
       type: String,
-      enum: [
-        "IDLE",
-        "ASK_SERVICE",
-        "ASK_ISSUE",
-        "ASK_URGENCY",
-        "ASK_LOCATION",
-        "ASK_MEDIA",
-        "ASK_MANUAL_ADDRESS",
-        "CONFIRM",
-        "VIEW_ACTIVE_BOOKINGS",
-        "AWAIT_CANCEL_CONFIRM",
-        "MAIN_MENU",
-      ],
+      enum: ["IDLE", "ASK_SERVICE", "ASK_ISSUE", "ASK_URGENCY", "ASK_LOCATION", "ASK_MEDIA", "CONFIRM"],
       default: "IDLE",
     },
     draft: {

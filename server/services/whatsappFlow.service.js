@@ -4,14 +4,19 @@ const Booking = require("../models/Booking");
 const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
-if (["hi", "hello", "start", "menu", "restart"].includes(normalized)) {
-  session.step = "MAIN_MENU";
 
-  session.draft = {};
+async function getOrCreateSession(phone) {
+  let s = await Session.findOne({ phone });
 
-  await session.save();
+  if (!s) {
+    s = await Session.create({
+      phone,
+      step: "IDLE",
+      draft: {},
+    });
+  }
 
-  return sendMainMenu(phone);
+  return s;
 }
 
 function extractMessage(msg) {
@@ -36,28 +41,22 @@ async function sendServiceList(phone) {
   }));
 
   return wa.sendList(phone, {
-    body: "Select the service you need",
+    body: "👋 Welcome to ServiQ\nSelect the service you need",
     buttonText: "View Services",
     sections: [
       {
+        title: "Account",
+        rows: [
+          {
+            id: "CHECK_ACTIVE_BOOKING",
+            title: "Check active bookings",
+            description: "View and manage your current bookings",
+          },
+        ],
+      },
+      {
         title: "Available Services",
         rows,
-      },
-    ],
-  });
-}
-
-async function sendMainMenu(phone) {
-  return wa.sendList(phone, {
-    body: "👋 Welcome to ServiQ — how can we help you today?",
-    buttonText: "Choose an option",
-    sections: [
-      {
-        title: "Main",
-        rows: [
-          { id: "CHECK_ACTIVE_BOOKING", title: "Check active bookings", description: "View and manage current bookings" },
-          { id: "VIEW_SERVICES", title: "View services", description: "Browse available services and book" },
-        ],
       },
     ],
   });
@@ -205,30 +204,11 @@ async function handleIncoming(payload, io) {
 
   switch (session.step) {
     case "IDLE": {
-      session.step = "MAIN_MENU";
+      session.step = "ASK_SERVICE";
 
       await session.save();
 
-      return sendMainMenu(phone);
-    }
-
-    case "MAIN_MENU": {
-      // User selected main menu option
-      if (incomingValue === "CHECK_ACTIVE_BOOKING") {
-        session.step = "VIEW_ACTIVE_BOOKINGS";
-        session.draft = {};
-        await session.save();
-        return sendActiveBookingsList(phone);
-      }
-
-      if (incomingValue === "VIEW_SERVICES") {
-        session.step = "ASK_SERVICE";
-        session.draft = {};
-        await session.save();
-        return sendServiceList(phone);
-      }
-
-      return sendMainMenu(phone);
+      return sendServiceList(phone);
     }
 
     case "ASK_SERVICE": {

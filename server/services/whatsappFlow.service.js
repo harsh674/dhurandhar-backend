@@ -1,6 +1,7 @@
 const Session = require("../models/WhatsAppSession");
 const Service = require("../models/Service");
 const Booking = require("../models/Booking");
+const Feedback = require("../models/Feedback");
 const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");

@@ -345,11 +345,11 @@ async function handleIncoming(payload, io) {
       // Use .set() to update ONLY the rating field inside the draft.
       // This avoids re-validating the existing draft.address object.
       session.set("draft.rating", selectedRating);
+      // We still mark it modified to be safe with nested objects
+      session.markModified("draft");
 
       session.step = "AWAIT_FEEDBACK_REVIEW";
 
-      // We still mark it modified to be safe with nested objects
-      session.markModified("draft");
       await session.save();
 
       return wa.sendButtons(phone, {

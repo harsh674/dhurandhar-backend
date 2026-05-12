@@ -114,6 +114,25 @@ async function handleIncoming(payload, io) {
       return sendServiceList(phone);
     }
 
+      async function sendLocationOptions(phone) {
+
+  return wa.sendButtons(phone, {
+    body:
+      "📍 Choose how you'd like to share your location",
+
+    buttons: [
+      {
+        id: "SHARE_LOCATION",
+        title: "Current Location",
+      },
+      {
+        id: "MANUAL_ADDRESS",
+        title: "Enter Address",
+      },
+    ],
+  });
+}
+
    case "ASK_SERVICE": {
   console.log("[wa-flow] ASK_SERVICE recv", {
     phone,
@@ -178,10 +197,7 @@ async function handleIncoming(payload, io) {
 
       await session.save();
 
-      return wa.sendText(
-        phone,
-        "📍 Please share your full address with pincode.\nExample:\n12 MG Road, Bangalore 560001"
-      );
+      return sendLocationOptions(phone);
     }
 
    case "ASK_LOCATION": {

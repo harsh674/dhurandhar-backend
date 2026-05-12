@@ -341,22 +341,19 @@ async function handleIncoming(payload, io) {
         );
       }
 
-      // REPLACEMENT LOGIC:
-      // Spread the existing draft to ensure bookingId and address aren't lost,
-      // then explicitly add the rating.
-      session.draft = {
-        ...session.toObject().draft,
-        rating: selectedRating,
-      };
-
-      session.step = "AWAIT_FEEDBACK_REVIEW";
-
-      // This tells Mongoose the Mixed type 'draft' has changed.
-      session.markModified("draft");
-      await session.save();
+      // Force an atomic update to the database to prevent race conditions
+      await Session.updateOne(
+        { _id: session._id },
+        {
+          $set: {
+            "draft.rating": selectedRating,
+            step: "AWAIT_FEEDBACK_REVIEW",
+          },
+        },
+      );
 
       return wa.sendButtons(phone, {
-        body: "Please type a short review, or click skip.",
+        body: "Got your rating! Please type a short review, or click skip.",
         buttons: [{ id: "SKIP_REVIEW", title: "Skip" }],
       });
     }

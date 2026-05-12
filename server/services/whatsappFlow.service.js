@@ -4,6 +4,15 @@ const Booking = require("../models/Booking");
 const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
+if (["hi", "hello", "start", "menu", "restart"].includes(normalized)) {
+  session.step = "MAIN_MENU";
+
+  session.draft = {};
+
+  await session.save();
+
+  return sendMainMenu(phone);
+}
 
 function extractMessage(msg) {
   if (msg?.interactive?.list_reply) {

@@ -309,7 +309,7 @@ async function handleIncoming(payload, io) {
 
       // FEEDBACK INITIATION
       if (incomingValue === "INIT_FEEDBACK") {
-        session.step = "AWAIT_FEEDBACK_RATING";
+        session.step = "AWAIT_FEEDBACK_REVIEW";
         await session.save();
         return sendRatingButtons(phone);
       }
@@ -358,34 +358,37 @@ async function handleIncoming(payload, io) {
       });
     }
 
-   case "AWAIT_FEEDBACK_REVIEW": {
-      const review = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
+    case "AWAIT_FEEDBACK_REVIEW": {
+      const reviewText = (incomingValue || "").trim();
 
-      // CRITICAL: Re-fetch the session from DB to get the rating saved in the previous step
-      const freshSession = await Session.findById(session._id);
-      
-      const savedRating = freshSession.draft?.rating;
-
-      // Debug log to verify it's working
-      console.log("Saving Feedback - Rating from DB:", savedRating);
-
-      if (savedRating === undefined || savedRating === null) {
-        return wa.sendText(phone, "Session error. Please try giving feedback again from the menu.");
+      if (!reviewText) {
+        return wa.sendText(
+          phone,
+          "Please type a message to share your feedback.",
+        );
       }
 
-      await Feedback.create({
-        fk_booking_id: freshSession.draft.bookingId,
-        user_whatsapp_number: phone,
-        rating: Number(savedRating),
-        review: review,
-      });
+      try {
+        await Feedback.create({
+          fk_booking_id: session.draft.bookingId,
+          user_whatsapp_number: phone,
+          rating: 5, // Defaulting to 5 since we aren't asking for it
+          review: reviewText,
+        });
 
-      // Clear session using the fresh instance
-      freshSession.step = "START";
-      freshSession.draft = {};
-      await freshSession.save();
+        // Reset session
+        session.step = "START";
+        session.draft = {};
+        await session.save();
 
-      return wa.sendText(phone, "🙏 Thank you for your feedback!");
+        return wa.sendText(phone, "🙏 Thank you! Your review has been saved.");
+      } catch (err) {
+        console.error("Feedback Save Error:", err);
+        return wa.sendText(
+          phone,
+          "❌ Sorry, there was an error saving your review.",
+        );
+      }
     }
     case "ASK_SERVICE": {
       console.log("[wa-flow] ASK_SERVICE recv", {

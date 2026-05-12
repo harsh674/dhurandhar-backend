@@ -1,5 +1,6 @@
 const Session = require("../models/WhatsAppSession");
 const Service = require("../models/Service");
+const Booking = require("../models/Booking");
 const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
@@ -44,6 +45,16 @@ async function sendServiceList(phone) {
     buttonText: "View Services",
     sections: [
       {
+        title: "Account",
+        rows: [
+          {
+            id: "CHECK_ACTIVE_BOOKING",
+            title: "Check active bookings",
+            description: "View and manage your current bookings",
+          },
+        ],
+      },
+      {
         title: "Available Services",
         rows,
       },
@@ -51,23 +62,73 @@ async function sendServiceList(phone) {
   });
 }
 
+async function sendActiveBookingsList(phone) {
+  const activeStatuses = [
+    "NEW",
+    "ASSIGNED",
+    "ACCEPTED",
+    "ON_THE_WAY",
+    "STARTED",
+  ];
+
+  const items = await Booking.find({
+    "customerSnapshot.phone": phone,
+    status: { $in: activeStatuses },
+  })
+    .sort({ createdAt: -1 })
+    .limit(20);
+
+  if (!items || items.length === 0) {
+    return wa.sendText(phone, "You have no active bookings right now.");
+  }
+
+  const rows = items.map((b) => ({
+    id: b._id.toString(),
+    title: b.code,
+    description: `${b.serviceName} — ${b.status}`,
+  }));
+
+  return wa.sendList(phone, {
+    body: "Here are your active bookings. Select one to manage.",
+    buttonText: "View Bookings",
+    sections: [
+      {
+        title: "Active Bookings",
+        rows,
+      },
+    ],
+  });
+}
+
+async function sendBookingActions(phone, booking) {
+  return wa.sendButtons(phone, {
+    body: `Booking: ${booking.code}\nService: ${booking.serviceName}\nStatus: ${booking.status}\nAddress: ${
+      booking.address?.line1 || "-"
+    }`,
+    buttons: [
+      { id: "CONFIRM_CANCEL_BOOKING", title: "Cancel Booking" },
+      { id: "BACK_TO_BOOKINGS", title: "⬅ Back" },
+    ],
+  });
+}
+
 async function sendUrgencyButtons(phone) {
   return wa.sendButtons(phone, {
     body: "How urgent is your issue?",
- buttons: [
-  {
-    id: "LOW",
-    title: "LOW",
-  },
-  {
-    id: "HIGH",
-    title: "HIGH",
-  },
-  {
-    id: "EMERGENCY",
-    title: "EMERGENCY",
-  },
-]
+    buttons: [
+      {
+        id: "LOW",
+        title: "LOW",
+      },
+      {
+        id: "HIGH",
+        title: "HIGH",
+      },
+      {
+        id: "EMERGENCY",
+        title: "EMERGENCY",
+      },
+    ],
   });
 }
 
@@ -80,48 +141,46 @@ async function sendConfirmationButtons(phone, draft) {
       `Urgency: ${draft.urgency}\n` +
       `Address: ${draft.address.line1}`,
 
-   buttons: [
-  {
-    id: "CONFIRM_BOOKING",
-    title: "Confirm",
-  },
-  {
-    id: "EDIT_BOOKING",
-    title: "Edit",
-  },
-  {
-    id: "CANCEL_BOOKING",
-    title: "Cancel",
-  },
-]
+    buttons: [
+      {
+        id: "CONFIRM_BOOKING",
+        title: "Confirm",
+      },
+      {
+        id: "EDIT_BOOKING",
+        title: "Edit",
+      },
+      {
+        id: "CANCEL_BOOKING",
+        title: "Cancel",
+      },
+    ],
   });
 }
 
 async function sendLocationOptions(phone) {
   return wa.sendButtons(phone, {
-    body:
-      "📍 Choose how you'd like to share your location",
+    body: "📍 Choose how you'd like to share your location",
 
-  buttons: [
-  {
-    id: "SHARE_LOCATION",
-    title: "Location",
-  },
-  {
-    id: "MANUAL_ADDRESS",
-    title: "Manual",
-  },
-  {
-    id: "BACK_TO_URGENCY",
-    title: "⬅ Back",
-  },
-]
+    buttons: [
+      {
+        id: "SHARE_LOCATION",
+        title: "Location",
+      },
+      {
+        id: "MANUAL_ADDRESS",
+        title: "Manual",
+      },
+      {
+        id: "BACK_TO_URGENCY",
+        title: "⬅ Back",
+      },
+    ],
   });
 }
 
 async function handleIncoming(payload, io) {
-  const msg =
-    payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const msg = payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
   if (!msg) return;
 
@@ -131,22 +190,17 @@ async function handleIncoming(payload, io) {
 
   const session = await getOrCreateSession(phone);
 
- const normalized =
-  (incomingValue || "").toLowerCase().trim();
+  const normalized = (incomingValue || "").toLowerCase().trim();
 
-if (
-  ["hi", "hello", "start", "menu", "restart"].includes(
-    normalized
-  )
-) {
-  session.step = "ASK_SERVICE";
+  if (["hi", "hello", "start", "menu", "restart"].includes(normalized)) {
+    session.step = "ASK_SERVICE";
 
-  session.draft = {};
+    session.draft = {};
 
-  await session.save();
+    await session.save();
 
-  return sendServiceList(phone);
-}
+    return sendServiceList(phone);
+  }
 
   switch (session.step) {
     case "IDLE": {
@@ -157,69 +211,138 @@ if (
       return sendServiceList(phone);
     }
 
-   case "ASK_SERVICE": {
-  console.log("[wa-flow] ASK_SERVICE recv", {
-    phone,
-    incomingValue,
-  });
+    case "ASK_SERVICE": {
+      console.log("[wa-flow] ASK_SERVICE recv", {
+        phone,
+        incomingValue,
+      });
 
-  let service = null;
+      // User requested to check active bookings
+      if (incomingValue === "CHECK_ACTIVE_BOOKING") {
+        session.step = "VIEW_ACTIVE_BOOKINGS";
+        session.draft = {};
 
-  // Only search by ObjectId if valid
-  if (
-    incomingValue &&
-    /^[0-9a-fA-F]{24}$/.test(incomingValue)
-  ) {
-    service = await Service.findById(incomingValue);
-  }
+        await session.save();
 
-  // Fallback text matching
-  if (!service) {
-    service = await Service.findOne({
-      serviceName: new RegExp(incomingValue, "i"),
-    });
-  }
+        return sendActiveBookingsList(phone);
+      }
 
-  // Still not found
-  if (!service) {
-    return sendServiceList(phone);
-  }
+      let service = null;
 
-  session.draft.serviceId = service._id;
-  session.draft.serviceName = service.serviceName;
+      // Only search by ObjectId if valid
+      if (incomingValue && /^[0-9a-fA-F]{24}$/.test(incomingValue)) {
+        service = await Service.findById(incomingValue);
+      }
 
-  session.step = "ASK_ISSUE";
+      // Fallback text matching
+      if (!service) {
+        service = await Service.findOne({
+          serviceName: new RegExp(incomingValue, "i"),
+        });
+      }
 
-  await session.save();
+      // Still not found
+      if (!service) {
+        return sendServiceList(phone);
+      }
 
-return wa.sendText(
-  phone,
-  `Got it 👍\nDescribe your issue with ${service.serviceName}.\n\nType 'back' to change service.`
-);
+      session.draft.serviceId = service._id;
+      session.draft.serviceName = service.serviceName;
 
-}
+      session.step = "ASK_ISSUE";
 
-case "ASK_ISSUE": {
+      await session.save();
 
-  if (
-    incomingValue.toLowerCase() === "back"
-  ) {
+      return wa.sendText(
+        phone,
+        `Got it 👍\nDescribe your issue with ${service.serviceName}.\n\nType 'back' to change service.`,
+      );
+    }
 
-    session.step = "ASK_SERVICE";
+    case "VIEW_ACTIVE_BOOKINGS": {
+      // User selected a booking from the list (id will be the booking _id)
+      if (incomingValue === "BACK_TO_BOOKINGS") {
+        return sendActiveBookingsList(phone);
+      }
 
-    await session.save();
+      if (incomingValue && /^[0-9a-fA-F]{24}$/.test(incomingValue)) {
+        const booking = await Booking.findById(incomingValue);
+        if (!booking || booking.customerSnapshot?.phone !== phone) {
+          return sendActiveBookingsList(phone);
+        }
 
-    return sendServiceList(phone);
-  }
+        session.draft.bookingId = booking._id;
+        session.step = "AWAIT_CANCEL_CONFIRM";
 
-  session.draft.issueType = incomingValue;
+        await session.save();
 
-  session.step = "ASK_URGENCY";
+        return sendBookingActions(phone, booking);
+      }
 
-  await session.save();
+      return sendActiveBookingsList(phone);
+    }
 
-  return sendUrgencyButtons(phone);
-}
+    case "AWAIT_CANCEL_CONFIRM": {
+      if (incomingValue === "BACK_TO_BOOKINGS") {
+        session.step = "VIEW_ACTIVE_BOOKINGS";
+        await session.save();
+        return sendActiveBookingsList(phone);
+      }
+
+      if (incomingValue === "CONFIRM_CANCEL_BOOKING") {
+        const bid = session.draft.bookingId;
+        try {
+          await bookingService.cancel(
+            bid,
+            "Cancelled by customer via WhatsApp",
+            "customer",
+          );
+
+          session.step = "IDLE";
+          session.draft = {};
+
+          await session.save();
+
+          return wa.sendText(phone, "✅ Booking cancelled successfully.");
+        } catch (err) {
+          console.error("[wa-flow] cancel booking failed", err);
+          return wa.sendText(
+            phone,
+            "Sorry, could not cancel booking right now.",
+          );
+        }
+      }
+
+      // Fallback: re-show actions
+      const bookingId = session.draft.bookingId;
+      if (bookingId) {
+        const booking = await Booking.findById(bookingId);
+        if (booking) return sendBookingActions(phone, booking);
+      }
+
+      session.step = "VIEW_ACTIVE_BOOKINGS";
+      session.draft = {};
+      await session.save();
+      return sendActiveBookingsList(phone);
+    }
+
+    case "ASK_ISSUE": {
+      if (incomingValue.toLowerCase() === "back") {
+        session.step = "ASK_SERVICE";
+
+        await session.save();
+
+        return sendServiceList(phone);
+      }
+
+      session.draft.issueType = incomingValue;
+
+      session.step = "ASK_URGENCY";
+
+      await session.save();
+
+      return sendUrgencyButtons(phone);
+    }
 
     case "ASK_URGENCY": {
       const urgency = incomingValue.toUpperCase();
@@ -237,100 +360,81 @@ case "ASK_ISSUE": {
       return sendLocationOptions(phone);
     }
 
-   case "ASK_LOCATION": {
+    case "ASK_LOCATION": {
+      // User clicked current location button
+      if (incomingValue === "SHARE_LOCATION") {
+        return wa.sendLocationRequest(
+          phone,
+          "📍 Please share your current location for faster technician assignment.",
+        );
+      }
 
-  // User clicked current location button
-if (incomingValue === "SHARE_LOCATION") {
+      // User shared actual WhatsApp location
+      if (msg.location) {
+        session.draft.address = {
+          line1: "Shared via WhatsApp location",
+          latitude: msg.location.latitude,
+          longitude: msg.location.longitude,
+          name: msg.location.name || "",
+          address: msg.location.address || "",
+        };
 
-  return wa.sendLocationRequest(
-    phone,
-    "📍 Please share your current location for faster technician assignment."
-  );
-}
+        session.step = "CONFIRM";
 
-  // User shared actual WhatsApp location
-  if (msg.location) {
+        await session.save();
 
-    session.draft.address = {
-      line1: "Shared via WhatsApp location",
-      latitude: msg.location.latitude,
-      longitude: msg.location.longitude,
-      name: msg.location.name || "",
-      address: msg.location.address || "",
-    };
+        return sendConfirmationButtons(phone, session.draft);
+      }
+      if (incomingValue === "BACK_TO_URGENCY") {
+        session.step = "ASK_URGENCY";
 
-    session.step = "CONFIRM";
+        await session.save();
 
-    await session.save();
+        return sendUrgencyButtons(phone);
+      }
 
-    return sendConfirmationButtons(
-      phone,
-      session.draft
-    );
-  }
-     if (incomingValue === "BACK_TO_URGENCY") {
+      // User selected manual address option
+      if (incomingValue === "MANUAL_ADDRESS") {
+        session.step = "ASK_MANUAL_ADDRESS";
 
-  session.step = "ASK_URGENCY";
+        await session.save();
 
-  await session.save();
+        return wa.sendText(
+          phone,
+          "✍️ Enter your full address with pincode.\n\nExample:\n221B Baker Street 400001\n\nType 'back' to return.",
+        );
+      }
 
-  return sendUrgencyButtons(phone);
-}
+      // Fallback
+      return sendLocationOptions(phone);
+    }
 
-  // User selected manual address option
- if (incomingValue === "MANUAL_ADDRESS") {
+    case "ASK_MANUAL_ADDRESS": {
+      if (incomingValue.toLowerCase() === "back") {
+        session.step = "ASK_LOCATION";
 
-  session.step = "ASK_MANUAL_ADDRESS";
+        await session.save();
 
-  await session.save();
+        return sendLocationOptions(phone);
+      }
 
-  return wa.sendText(
-    phone,
-    "✍️ Enter your full address with pincode.\n\nExample:\n221B Baker Street 400001\n\nType 'back' to return."
-  );
-}
+      const pin = (incomingValue.match(/\b\d{4,8}\b/) || [])[0];
 
- // Fallback
-  return sendLocationOptions(phone);
-     }
-      
-     case "ASK_MANUAL_ADDRESS": {
+      if (!pin) {
+        return wa.sendText(phone, "Please include a valid pincode.");
+      }
 
-  if (
-    incomingValue.toLowerCase() === "back"
-  ) {
+      session.draft.address = {
+        line1: incomingValue,
+        pincode: pin,
+      };
 
-    session.step = "ASK_LOCATION";
+      session.step = "CONFIRM";
 
-    await session.save();
+      await session.save();
 
-    return sendLocationOptions(phone);
-  }
-
-  const pin =
-    (incomingValue.match(/\b\d{4,8}\b/) || [])[0];
-
-  if (!pin) {
-    return wa.sendText(
-      phone,
-      "Please include a valid pincode."
-    );
-  }
-
-  session.draft.address = {
-    line1: incomingValue,
-    pincode: pin,
-  };
-
-  session.step = "CONFIRM";
-
-  await session.save();
-
-  return sendConfirmationButtons(
-    phone,
-    session.draft
-  );
-}
+      return sendConfirmationButtons(phone, session.draft);
+    }
 
     case "CONFIRM": {
       console.log("[wa-flow] CONFIRM recv", {
@@ -338,15 +442,14 @@ if (incomingValue === "SHARE_LOCATION") {
         incomingValue,
       });
       if (incomingValue === "EDIT_BOOKING") {
+        session.step = "ASK_SERVICE";
 
-  session.step = "ASK_SERVICE";
+        session.draft = {};
 
-  session.draft = {};
+        await session.save();
 
-  await session.save();
-
-  return sendServiceList(phone);
-}
+        return sendServiceList(phone);
+      }
 
       if (incomingValue === "CANCEL_BOOKING") {
         session.step = "IDLE";
@@ -356,39 +459,31 @@ if (incomingValue === "SHARE_LOCATION") {
 
         return wa.sendText(
           phone,
-          "❌ Booking cancelled.\nSend Hi to start again."
+          "❌ Booking cancelled.\nSend Hi to start again.",
         );
       }
 
       if (incomingValue !== "CONFIRM_BOOKING") {
-        return sendConfirmationButtons(
-          phone,
-          session.draft
-        );
+        return sendConfirmationButtons(phone, session.draft);
       }
 
       try {
-        const booking =
-          await bookingService.createBooking(
-            {
-              customer: { phone },
+        const booking = await bookingService.createBooking(
+          {
+            customer: { phone },
 
-              serviceId:
-                session.draft.serviceId,
+            serviceId: session.draft.serviceId,
 
-              issueType:
-                session.draft.issueType,
+            issueType: session.draft.issueType,
 
-              urgency:
-                session.draft.urgency,
+            urgency: session.draft.urgency,
 
-              address:
-                session.draft.address,
+            address: session.draft.address,
 
-              source: "whatsapp",
-            },
-            io
-          );
+            source: "whatsapp",
+          },
+          io,
+        );
 
         console.log("[wa-flow] booking created", {
           bookingId: booking.id,
@@ -402,17 +497,14 @@ if (incomingValue === "SHARE_LOCATION") {
 
         return wa.sendText(
           phone,
-          `✅ Booking confirmed!\nReference ID: ${booking.code}\nWe'll assign a professional shortly.`
+          `✅ Booking confirmed!\nReference ID: ${booking.code}\nWe'll assign a professional shortly.`,
         );
       } catch (err) {
-        console.error(
-          "[wa-flow] booking creation failed",
-          err
-        );
+        console.error("[wa-flow] booking creation failed", err);
 
         return wa.sendText(
           phone,
-          "Sorry, booking failed right now. Please try again later."
+          "Sorry, booking failed right now. Please try again later.",
         );
       }
     }

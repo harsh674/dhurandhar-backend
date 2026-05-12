@@ -14,6 +14,7 @@ const waSessionSchema = new mongoose.Schema(
 
       enum: [
         "IDLE",
+        "START",
         "ASK_SERVICE",
         "ASK_ISSUE",
         "ASK_URGENCY",

@@ -48,5 +48,70 @@ function verifyWebhook(query) {
   if (mode === "subscribe" && token === env.whatsapp.verifyToken) return challenge;
   return null;
 }
+async function sendButtons(to, data) {
+  return axios.post(
+    apiUrl(),
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: {
+          text: data.body,
+        },
+        action: {
+          buttons: data.buttons.map((b) => ({
+            type: "reply",
+            reply: {
+              id: b.id,
+              title: b.title,
+            },
+          })),
+        },
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${env.whatsapp.token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+}
 
-module.exports = { sendText, sendTemplate, verifyWebhook, enabled };
+async function sendList(to, data) {
+  return axios.post(
+    apiUrl(),
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        body: {
+          text: data.body,
+        },
+        action: {
+          button: data.buttonText,
+          sections: data.sections,
+        },
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${env.whatsapp.token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+}
+
+module.exports = {
+  sendText,
+  sendButtons,
+  sendList,
+  sendTemplate, verifyWebhook, enabled
+};
+
+

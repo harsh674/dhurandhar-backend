@@ -208,29 +208,29 @@ async function handleIncoming(payload, io) {
 
   const session = await getOrCreateSession(phone);
 
-if (
-  ![
-  "IDLE",
-  "VIEW_ACTIVE_BOOKINGS",
-  "AWAIT_CANCEL_CONFIRM",
-].includes(session.step) &&
-  session.updatedAt &&
-  Date.now() - new Date(session.updatedAt).getTime() >
-    SESSION_TIMEOUT
-) {
-  session.step = "ASK_SERVICE";
+// if (
+//   ![
+//   "IDLE",
+//   "VIEW_ACTIVE_BOOKINGS",
+//   "AWAIT_CANCEL_CONFIRM",
+// ].includes(session.step) &&
+//   session.updatedAt &&
+//   Date.now() - new Date(session.updatedAt).getTime() >
+//     SESSION_TIMEOUT
+// ) {
+//   session.step = "ASK_SERVICE";
 
-  session.draft = {};
+//   session.draft = {};
 
-  await session.save();
+//   await session.save();
 
-  await wa.sendText(
-    phone,
-    "⌛ Your previous session expired. Starting a new booking."
-  );
+//   await wa.sendText(
+//     phone,
+//     "⌛ Your previous session expired. Starting a new booking."
+//   );
 
-  return sendServiceList(phone);
-}
+//   return sendServiceList(phone);
+// }
 
   const normalized = (incomingValue || "").toLowerCase().trim();
 

@@ -330,7 +330,6 @@ async function handleIncoming(payload, io) {
       }
       return sendWelcomeMenu(phone);
     }
-
     case "AWAIT_FEEDBACK_RATING": {
       const ratings = { RATING_5: 5, RATING_3: 3, RATING_1: 1 };
       const selectedRating = ratings[incomingValue];
@@ -342,14 +341,18 @@ async function handleIncoming(payload, io) {
         );
       }
 
-      // Use .set() to update ONLY the rating field inside the draft.
-      // This avoids re-validating the existing draft.address object.
-      session.set("draft.rating", selectedRating);
-      // We still mark it modified to be safe with nested objects
-      session.markModified("draft");
+      // REPLACEMENT LOGIC:
+      // Spread the existing draft to ensure bookingId and address aren't lost,
+      // then explicitly add the rating.
+      session.draft = {
+        ...session.toObject().draft,
+        rating: selectedRating,
+      };
 
       session.step = "AWAIT_FEEDBACK_REVIEW";
 
+      // This tells Mongoose the Mixed type 'draft' has changed.
+      session.markModified("draft");
       await session.save();
 
       return wa.sendButtons(phone, {

@@ -31,29 +31,29 @@ function extractMessage(msg) {
   return (msg?.text?.body || "").trim();
 }
 
+async function sendWelcomeMenu(phone) {
+  return wa.sendButtons(phone, {
+    body: "👋 Welcome to ServiQ\nHow can we help you today?",
+    buttons: [
+      { id: "VIEW_SERVICES", title: "Book a Service" },
+      { id: "CHECK_ACTIVE_BOOKING", title: "My Bookings" },
+    ],
+  });
+}
+
 async function sendServiceList(phone) {
-  const services = await Service.find().sort({ createdAt: 1 });
+  const services = await Service.find({ isActive: true }).sort({ createdAt: 1 });
 
   const rows = services.map((s) => ({
     id: s._id.toString(),
     title: s.serviceName,
-    description: `Book ${s.serviceName} service`,
+    description: `Book ${s.serviceName}`,
   }));
 
   return wa.sendList(phone, {
-    body: "👋 Welcome to ServiQ\nSelect the service you need",
+    body: "Please select the service you need:",
     buttonText: "View Services",
     sections: [
-      {
-        title: "Account",
-        rows: [
-          {
-            id: "CHECK_ACTIVE_BOOKING",
-            title: "Check active bookings",
-            description: "View and manage your current bookings",
-          },
-        ],
-      },
       {
         title: "Available Services",
         rows,
@@ -193,22 +193,28 @@ async function handleIncoming(payload, io) {
   const normalized = (incomingValue || "").toLowerCase().trim();
 
   if (["hi", "hello", "start", "menu", "restart"].includes(normalized)) {
-    session.step = "ASK_SERVICE";
-
+    session.step = "START";
     session.draft = {};
-
     await session.save();
-
-    return sendServiceList(phone);
+    return sendWelcomeMenu(phone);
   }
 
   switch (session.step) {
-    case "IDLE": {
-      session.step = "ASK_SERVICE";
+    case "IDLE":
+    case "START": {
+      if (incomingValue === "VIEW_SERVICES") {
+        session.step = "ASK_SERVICE";
+        await session.save();
+        return sendServiceList(phone);
+      }
 
-      await session.save();
+      if (incomingValue === "CHECK_ACTIVE_BOOKING") {
+        session.step = "VIEW_ACTIVE_BOOKINGS";
+        await session.save();
+        return sendActiveBookingsList(phone);
+      }
 
-      return sendServiceList(phone);
+      return sendWelcomeMenu(phone);
     }
 
     case "ASK_SERVICE": {

@@ -342,6 +342,15 @@ async function handleIncoming(payload, io) {
         );
       }
 
+      console.log(
+        "[wa-flow] selected rating",
+        {
+          phone,
+          selectedRating,
+        },
+        session.draft,
+      );
+
       // Explicitly set the rating in the draft object
       session.draft = {
         ...session.draft,
@@ -352,7 +361,9 @@ async function handleIncoming(payload, io) {
 
       // Tell Mongoose the nested 'draft' object has changed
       session.markModified("draft");
+      console.log("Done")
       await session.save();
+      console.log("D")
 
       return wa.sendButtons(phone, {
         body: "Please type a short review, or click skip.",

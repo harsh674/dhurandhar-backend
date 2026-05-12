@@ -54,20 +54,20 @@ async function sendServiceList(phone) {
 async function sendUrgencyButtons(phone) {
   return wa.sendButtons(phone, {
     body: "How urgent is your issue?",
-    buttons: [
-      {
-        id: "LOW",
-        title: "LOW",
-      },
-      {
-        id: "NORMAL",
-        title: "NORMAL",
-      },
-      {
-        id: "HIGH",
-        title: "HIGH",
-      },
-    ],
+ buttons: [
+  {
+    id: "LOW",
+    title: "LOW",
+  },
+  {
+    id: "HIGH",
+    title: "HIGH",
+  },
+  {
+    id: "EMERGENCY",
+    title: "EMERGENCY",
+  },
+]
   });
 }
 
@@ -122,6 +122,23 @@ async function handleIncoming(payload, io) {
   const incomingValue = extractMessage(msg);
 
   const session = await getOrCreateSession(phone);
+
+  const normalized =
+  incomingValue.toLowerCase().trim();
+
+if (
+  ["hi", "hello", "start", "menu", "restart"].includes(
+    normalized
+  )
+) {
+  session.step = "ASK_SERVICE";
+
+  session.draft = {};
+
+  await session.save();
+
+  return sendServiceList(phone);
+}
 
   switch (session.step) {
     case "IDLE": {

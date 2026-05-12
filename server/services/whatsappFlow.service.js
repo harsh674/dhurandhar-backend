@@ -309,7 +309,7 @@ async function handleIncoming(payload, io) {
 
       // FEEDBACK INITIATION
       if (incomingValue === "INIT_FEEDBACK") {
-        session.step = "AWAIT_FEEDBACK_REVIEW";
+        session.step = "AWAIT_FEEDBACK_RATING";
         await session.save();
         return sendRatingButtons(phone);
       }
@@ -359,36 +359,27 @@ async function handleIncoming(payload, io) {
     }
 
     case "AWAIT_FEEDBACK_REVIEW": {
-      const reviewText = (incomingValue || "").trim();
+      const review = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
 
-      if (!reviewText) {
-        return wa.sendText(
-          phone,
-          "Please type a message to share your feedback.",
-        );
-      }
+      // Reload session from DB to get the latest atomic update (rating saved earlier)
+      const refreshed = await Session.findById(session._id).lean();
+      const savedRating = refreshed?.draft?.rating;
 
-      try {
-        await Feedback.create({
-          fk_booking_id: session.draft.bookingId,
-          user_whatsapp_number: phone,
-          rating: 5, // Defaulting to 5 since we aren't asking for it
-          review: reviewText,
-        });
+      console.log("Saving Feedback - Rating:", savedRating);
 
-        // Reset session
-        session.step = "START";
-        session.draft = {};
-        await session.save();
+      await Feedback.create({
+        fk_booking_id: refreshed?.draft?.bookingId || session.draft.bookingId,
+        user_whatsapp_number: phone,
+        rating: Number(savedRating),
+        review: review,
+      });
 
-        return wa.sendText(phone, "🙏 Thank you! Your review has been saved.");
-      } catch (err) {
-        console.error("Feedback Save Error:", err);
-        return wa.sendText(
-          phone,
-          "❌ Sorry, there was an error saving your review.",
-        );
-      }
+      // Clear session after successful save
+      session.step = "START";
+      session.draft = {};
+      await session.save();
+
+      return wa.sendText(phone, "🙏 Thank you for your feedback!");
     }
     case "ASK_SERVICE": {
       console.log("[wa-flow] ASK_SERVICE recv", {

@@ -107,11 +107,30 @@ async function sendList(to, data) {
   );
 }
 
+async function sendLocationOptions(phone) {
+
+  return wa.sendButtons(phone, {
+    body:
+      "📍 Choose how you'd like to share your location",
+
+    buttons: [
+      {
+        id: "SHARE_LOCATION",
+        title: "Current Location",
+      },
+      {
+        id: "MANUAL_ADDRESS",
+        title: "Enter Address",
+      },
+    ],
+  });
+}
+
 module.exports = {
   sendText,
   sendButtons,
   sendList,
-  sendTemplate, verifyWebhook, enabled
+  sendTemplate, verifyWebhook, sendLocationOptions, enabled
 };
 
 

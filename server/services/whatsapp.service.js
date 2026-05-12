@@ -107,11 +107,52 @@ async function sendList(to, data) {
   );
 }
 
+async function sendLocationRequest(to, bodyText) {
+
+  if (!enabled()) {
+    console.log(
+      `[whatsapp:stub] location request → ${to}`
+    );
+
+    return { stubbed: true };
+  }
+
+  const { data } = await axios.post(
+    apiUrl(),
+    {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+
+      interactive: {
+        type: "location_request_message",
+
+        body: {
+          text: bodyText,
+        },
+
+        action: {
+          name: "send_location",
+        },
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${env.whatsapp.token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  return data;
+}
+
 module.exports = {
   sendText,
   sendButtons,
   sendList,
-  sendTemplate, verifyWebhook, enabled
+  sendTemplate, verifyWebhook, sendLocationRequest, enabled
 };
 
 

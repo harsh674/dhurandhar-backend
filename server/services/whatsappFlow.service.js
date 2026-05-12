@@ -4,6 +4,7 @@ const Booking = require("../models/Booking");
 const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
+const SESSION_TIMEOUT = 30 * 60 * 1000;
 
 async function getOrCreateSession(phone) {
   let s = await Session.findOne({ phone });
@@ -189,6 +190,30 @@ async function handleIncoming(payload, io) {
   const incomingValue = extractMessage(msg);
 
   const session = await getOrCreateSession(phone);
+
+if (
+  ![
+  "IDLE",
+  "VIEW_ACTIVE_BOOKINGS",
+  "AWAIT_CANCEL_CONFIRM",
+].includes(session.step) &&
+  session.updatedAt &&
+  Date.now() - new Date(session.updatedAt).getTime() >
+    SESSION_TIMEOUT
+) {
+  session.step = "ASK_SERVICE";
+
+  session.draft = {};
+
+  await session.save();
+
+  await wa.sendText(
+    phone,
+    "⌛ Your previous session expired. Starting a new booking."
+  );
+
+  return sendServiceList(phone);
+}
 
   const normalized = (incomingValue || "").toLowerCase().trim();
 

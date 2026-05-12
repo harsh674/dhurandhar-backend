@@ -80,16 +80,20 @@ async function sendConfirmationButtons(phone, draft) {
       `Urgency: ${draft.urgency}\n` +
       `Address: ${draft.address.line1}`,
 
-    buttons: [
-      {
-        id: "CONFIRM_BOOKING",
-        title: "Confirm",
-      },
-      {
-        id: "CANCEL_BOOKING",
-        title: "Cancel",
-      },
-    ],
+   buttons: [
+  {
+    id: "CONFIRM_BOOKING",
+    title: "Confirm",
+  },
+  {
+    id: "EDIT_BOOKING",
+    title: "Edit",
+  },
+  {
+    id: "CANCEL_BOOKING",
+    title: "Cancel",
+  },
+]
   });
 }
 
@@ -98,16 +102,20 @@ async function sendLocationOptions(phone) {
     body:
       "📍 Choose how you'd like to share your location",
 
-    buttons: [
-      {
-        id: "SHARE_LOCATION",
-        title: "Current Location",
-      },
-      {
-        id: "MANUAL_ADDRESS",
-        title: "Enter Address",
-      },
-    ],
+  buttons: [
+  {
+    id: "SHARE_LOCATION",
+    title: "Location",
+  },
+  {
+    id: "MANUAL_ADDRESS",
+    title: "Manual",
+  },
+  {
+    id: "BACK_TO_URGENCY",
+    title: "⬅ Back",
+  },
+]
   });
 }
 
@@ -123,8 +131,8 @@ async function handleIncoming(payload, io) {
 
   const session = await getOrCreateSession(phone);
 
-  const normalized =
-  incomingValue.toLowerCase().trim();
+ const normalized =
+  (incomingValue || "").toLowerCase().trim();
 
 if (
   ["hi", "hello", "start", "menu", "restart"].includes(
@@ -184,21 +192,34 @@ if (
 
   await session.save();
 
-  return wa.sendText(
-    phone,
-    `Got it 👍\nPlease briefly describe your issue with ${service.serviceName}.`
-  );
+return wa.sendText(
+  phone,
+  `Got it 👍\nDescribe your issue with ${service.serviceName}.\n\nType 'back' to change service.`
+);
+
 }
 
-    case "ASK_ISSUE": {
-      session.draft.issueType = incomingValue;
+case "ASK_ISSUE": {
 
-      session.step = "ASK_URGENCY";
+  if (
+    incomingValue.toLowerCase() === "back"
+  ) {
 
-      await session.save();
+    session.step = "ASK_SERVICE";
 
-      return sendUrgencyButtons(phone);
-    }
+    await session.save();
+
+    return sendServiceList(phone);
+  }
+
+  session.draft.issueType = incomingValue;
+
+  session.step = "ASK_URGENCY";
+
+  await session.save();
+
+  return sendUrgencyButtons(phone);
+}
 
     case "ASK_URGENCY": {
       const urgency = incomingValue.toUpperCase();
@@ -247,25 +268,44 @@ if (incomingValue === "SHARE_LOCATION") {
       session.draft
     );
   }
+     if (incomingValue === "BACK_TO_URGENCY") {
+
+  session.step = "ASK_URGENCY";
+
+  await session.save();
+
+  return sendUrgencyButtons(phone);
+}
 
   // User selected manual address option
-  if (incomingValue === "MANUAL_ADDRESS") {
+ if (incomingValue === "MANUAL_ADDRESS") {
 
-    session.step = "ASK_MANUAL_ADDRESS";
+  session.step = "ASK_MANUAL_ADDRESS";
+
+  await session.save();
+
+  return wa.sendText(
+    phone,
+    "✍️ Enter your full address with pincode.\n\nExample:\n221B Baker Street 400001\n\nType 'back' to return."
+  );
+}
+
+ // Fallback
+  return sendLocationOptions(phone);
+     }
+      
+     case "ASK_MANUAL_ADDRESS": {
+
+  if (
+    incomingValue.toLowerCase() === "back"
+  ) {
+
+    session.step = "ASK_LOCATION";
 
     await session.save();
 
-    return wa.sendText(
-      phone,
-      "✍️ Please enter your full address with pincode."
-    );
+    return sendLocationOptions(phone);
   }
-
-  // Fallback
-  return sendLocationOptions(phone);
-}
-
-      case "ASK_MANUAL_ADDRESS": {
 
   const pin =
     (incomingValue.match(/\b\d{4,8}\b/) || [])[0];
@@ -297,6 +337,16 @@ if (incomingValue === "SHARE_LOCATION") {
         phone,
         incomingValue,
       });
+      if (incomingValue === "EDIT_BOOKING") {
+
+  session.step = "ASK_SERVICE";
+
+  session.draft = {};
+
+  await session.save();
+
+  return sendServiceList(phone);
+}
 
       if (incomingValue === "CANCEL_BOOKING") {
         session.step = "IDLE";

@@ -184,31 +184,72 @@ async function handleIncoming(payload, io) {
       );
     }
 
-    case "ASK_LOCATION": {
-      const pin =
-        (incomingValue.match(/\b\d{4,8}\b/) || [])[0];
+   case "ASK_LOCATION": {
 
-      if (!pin) {
-        return wa.sendText(
-          phone,
-          "Please include a valid pincode."
-        );
-      }
+  // User shared actual WhatsApp location
+  if (msg.location) {
 
-      session.draft.address = {
-        line1: incomingValue,
-        pincode: pin,
-      };
+    session.draft.address = {
+      line1: "Shared via WhatsApp location",
+      latitude: msg.location.latitude,
+      longitude: msg.location.longitude,
+      name: msg.location.name || "",
+      address: msg.location.address || "",
+    };
 
-      session.step = "CONFIRM";
+    session.step = "CONFIRM";
 
-      await session.save();
+    await session.save();
 
-      return sendConfirmationButtons(
-        phone,
-        session.draft
-      );
-    }
+    return sendConfirmationButtons(
+      phone,
+      session.draft
+    );
+  }
+
+  // User selected manual address option
+  if (incomingValue === "MANUAL_ADDRESS") {
+
+    session.step = "ASK_MANUAL_ADDRESS";
+
+    await session.save();
+
+    return wa.sendText(
+      phone,
+      "✍️ Please enter your full address with pincode."
+    );
+  }
+
+  // Default location request message
+  return sendLocationOptions(phone);
+}
+
+      case "ASK_MANUAL_ADDRESS": {
+
+  const pin =
+    (incomingValue.match(/\b\d{4,8}\b/) || [])[0];
+
+  if (!pin) {
+    return wa.sendText(
+      phone,
+      "Please include a valid pincode."
+    );
+  }
+
+  session.draft.address = {
+    line1: incomingValue,
+    pincode: pin,
+  };
+
+  session.step = "CONFIRM";
+
+  await session.save();
+
+  return sendConfirmationButtons(
+    phone,
+    session.draft
+  );
+}
 
     case "CONFIRM": {
       console.log("[wa-flow] CONFIRM recv", {

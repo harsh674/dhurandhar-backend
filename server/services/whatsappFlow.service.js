@@ -219,13 +219,13 @@ if (
    case "ASK_LOCATION": {
 
   // User clicked current location button
-  if (incomingValue === "SHARE_LOCATION") {
+if (incomingValue === "SHARE_LOCATION") {
 
-    return wa.sendText(
-      phone,
-      "📍 Please tap the attachment icon 📎 in WhatsApp and send your current location."
-    );
-  }
+  return wa.sendLocationRequest(
+    phone,
+    "📍 Please share your current location for faster technician assignment."
+  );
+}
 
   // User shared actual WhatsApp location
   if (msg.location) {

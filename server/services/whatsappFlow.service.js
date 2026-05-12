@@ -114,40 +114,46 @@ async function handleIncoming(payload, io) {
       return sendServiceList(phone);
     }
 
-    case "ASK_SERVICE": {
-      console.log("[wa-flow] ASK_SERVICE recv", {
-        phone,
-        incomingValue,
-      });
+   case "ASK_SERVICE": {
+  console.log("[wa-flow] ASK_SERVICE recv", {
+    phone,
+    incomingValue,
+  });
 
-      let service = null;
+  let service = null;
 
-      // Interactive list selection
-      service = await Service.findById(incomingValue);
+  // Only search by ObjectId if valid
+  if (
+    incomingValue &&
+    /^[0-9a-fA-F]{24}$/.test(incomingValue)
+  ) {
+    service = await Service.findById(incomingValue);
+  }
 
-      // fallback text matching
-      if (!service) {
-        service = await Service.findOne({
-          serviceName: new RegExp(incomingValue, "i"),
-        });
-      }
+  // Fallback text matching
+  if (!service) {
+    service = await Service.findOne({
+      serviceName: new RegExp(incomingValue, "i"),
+    });
+  }
 
-      if (!service) {
-        return sendServiceList(phone);
-      }
+  // Still not found
+  if (!service) {
+    return sendServiceList(phone);
+  }
 
-      session.draft.serviceId = service._id;
-      session.draft.serviceName = service.serviceName;
+  session.draft.serviceId = service._id;
+  session.draft.serviceName = service.serviceName;
 
-      session.step = "ASK_ISSUE";
+  session.step = "ASK_ISSUE";
 
-      await session.save();
+  await session.save();
 
-      return wa.sendText(
-        phone,
-        `Got it 👍\nPlease briefly describe your issue with ${service.serviceName}.`
-      );
-    }
+  return wa.sendText(
+    phone,
+    `Got it 👍\nPlease briefly describe your issue with ${service.serviceName}.`
+  );
+}
 
     case "ASK_ISSUE": {
       session.draft.issueType = incomingValue;

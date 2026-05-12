@@ -44,7 +44,9 @@ async function sendWelcomeMenu(phone) {
 }
 
 async function sendServiceList(phone) {
-  const services = await Service.find({ isActive: true }).sort({ createdAt: 1 });
+  const services = await Service.find({ isActive: true }).sort({
+    createdAt: 1,
+  });
 
   const rows = services.map((s) => ({
     id: s._id.toString(),
@@ -104,9 +106,7 @@ async function sendActiveBookingsList(phone) {
 
 async function sendBookingActions(phone, booking) {
   // Logic: Show Feedback option only if booking is COMPLETED
-  const buttons = [
-    { id: "BACK_TO_BOOKINGS", title: "⬅ Back" }
-  ];
+  const buttons = [{ id: "BACK_TO_BOOKINGS", title: "⬅ Back" }];
 
   if (booking.status === "COMPLETED") {
     buttons.unshift({ id: "INIT_FEEDBACK", title: "Give Feedback" });
@@ -116,7 +116,7 @@ async function sendBookingActions(phone, booking) {
 
   return wa.sendButtons(phone, {
     body: `Booking: ${booking.code}\nService: ${booking.serviceName}\nStatus: ${booking.status}\nAddress: ${booking.address?.line1 || "-"}`,
-    buttons: buttons
+    buttons: buttons,
   });
 }
 
@@ -209,29 +209,29 @@ async function handleIncoming(payload, io) {
 
   const session = await getOrCreateSession(phone);
 
-// if (
-//   ![
-//   "IDLE",
-//   "VIEW_ACTIVE_BOOKINGS",
-//   "AWAIT_CANCEL_CONFIRM",
-// ].includes(session.step) &&
-//   session.updatedAt &&
-//   Date.now() - new Date(session.updatedAt).getTime() >
-//     SESSION_TIMEOUT
-// ) {
-//   session.step = "ASK_SERVICE";
+  // if (
+  //   ![
+  //   "IDLE",
+  //   "VIEW_ACTIVE_BOOKINGS",
+  //   "AWAIT_CANCEL_CONFIRM",
+  // ].includes(session.step) &&
+  //   session.updatedAt &&
+  //   Date.now() - new Date(session.updatedAt).getTime() >
+  //     SESSION_TIMEOUT
+  // ) {
+  //   session.step = "ASK_SERVICE";
 
-//   session.draft = {};
+  //   session.draft = {};
 
-//   await session.save();
+  //   await session.save();
 
-//   await wa.sendText(
-//     phone,
-//     "⌛ Your previous session expired. Starting a new booking."
-//   );
+  //   await wa.sendText(
+  //     phone,
+  //     "⌛ Your previous session expired. Starting a new booking."
+  //   );
 
-//   return sendServiceList(phone);
-// }
+  //   return sendServiceList(phone);
+  // }
 
   const normalized = (incomingValue || "").toLowerCase().trim();
 
@@ -245,41 +245,53 @@ async function handleIncoming(payload, io) {
   switch (session.step) {
     case "IDLE":
     case "START": {
-        if (incomingValue === "VIEW_SERVICES") {
-          session.step = "ASK_SERVICE";
-          await session.save();
-          return sendServiceList(phone);
-        }
-        if (incomingValue === "CHECK_ACTIVE_BOOKING") {
-          session.step = "VIEW_ACTIVE_BOOKINGS";
-          await session.save();
-          // Updated to show COMPLETED bookings too so they can give feedback
-          const items = await Booking.find({
-            "customerSnapshot.phone": phone,
-            status: { $in: ["NEW", "ASSIGNED", "ACCEPTED", "ON_THE_WAY", "STARTED", "COMPLETED"] },
-          }).sort({ createdAt: -1 }).limit(10);
-          
-          if (!items.length) return wa.sendText(phone, "No recent bookings found.");
-          
-          const rows = items.map((b) => ({
-            id: b._id.toString(),
-            title: b.code,
-            description: `${b.serviceName} — ${b.status}`,
-          }));
+      if (incomingValue === "VIEW_SERVICES") {
+        session.step = "ASK_SERVICE";
+        await session.save();
+        return sendServiceList(phone);
+      }
+      if (incomingValue === "CHECK_ACTIVE_BOOKING") {
+        session.step = "VIEW_ACTIVE_BOOKINGS";
+        await session.save();
+        // Updated to show COMPLETED bookings too so they can give feedback
+        const items = await Booking.find({
+          "customerSnapshot.phone": phone,
+          status: {
+            $in: [
+              "NEW",
+              "ASSIGNED",
+              "ACCEPTED",
+              "ON_THE_WAY",
+              "STARTED",
+              "COMPLETED",
+            ],
+          },
+        })
+          .sort({ createdAt: -1 })
+          .limit(10);
 
-          return wa.sendList(phone, {
-            body: "Select a booking:",
-            buttonText: "View Bookings",
-            sections: [{ title: "Recent Bookings", rows }],
-          });
-        }
-        return sendWelcomeMenu(phone);
+        if (!items.length)
+          return wa.sendText(phone, "No recent bookings found.");
+
+        const rows = items.map((b) => ({
+          id: b._id.toString(),
+          title: b.code,
+          description: `${b.serviceName} — ${b.status}`,
+        }));
+
+        return wa.sendList(phone, {
+          body: "Select a booking:",
+          buttonText: "View Bookings",
+          sections: [{ title: "Recent Bookings", rows }],
+        });
+      }
+      return sendWelcomeMenu(phone);
     }
     case "VIEW_ACTIVE_BOOKINGS": {
       if (incomingValue && /^[0-9a-fA-F]{24}$/.test(incomingValue)) {
         const booking = await Booking.findById(incomingValue);
         if (!booking) return sendWelcomeMenu(phone);
-        
+
         session.draft.bookingId = booking._id;
         session.step = "AWAIT_CANCEL_CONFIRM"; // This step handles the Detail View
         await session.save();
@@ -304,33 +316,42 @@ async function handleIncoming(payload, io) {
 
       if (incomingValue === "CONFIRM_CANCEL_BOOKING") {
         try {
-          await bookingService.cancel(session.draft.bookingId, "Cancelled by user", "customer");
+          await bookingService.cancel(
+            session.draft.bookingId,
+            "Cancelled by user",
+            "customer",
+          );
           session.step = "START";
           await session.save();
           return wa.sendText(phone, "✅ Booking cancelled.");
-        } catch (e) { return wa.sendText(phone, "Error cancelling."); }
+        } catch (e) {
+          return wa.sendText(phone, "Error cancelling.");
+        }
       }
       return sendWelcomeMenu(phone);
     }
 
-case "AWAIT_FEEDBACK_RATING": {
+    case "AWAIT_FEEDBACK_RATING": {
       const ratings = { RATING_5: 5, RATING_3: 3, RATING_1: 1 };
       const selectedRating = ratings[incomingValue];
 
       if (!selectedRating) {
-        return wa.sendText(phone, "Please select a rating using the buttons above.");
+        return wa.sendText(
+          phone,
+          "Please select a rating using the buttons above.",
+        );
       }
 
       // Explicitly set the rating in the draft object
-      session.draft = { 
-        ...session.draft, 
-        rating: selectedRating 
+      session.draft = {
+        ...session.draft,
+        rating: selectedRating,
       };
-      
+
       session.step = "AWAIT_FEEDBACK_REVIEW";
-      
-      // Mark draft as modified to ensure Mongoose saves the nested object
-      session.markModified('draft'); 
+
+      // Tell Mongoose the nested 'draft' object has changed
+      session.markModified("draft");
       await session.save();
 
       return wa.sendButtons(phone, {
@@ -341,7 +362,7 @@ case "AWAIT_FEEDBACK_RATING": {
 
     case "AWAIT_FEEDBACK_REVIEW": {
       const review = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
-      
+
       // Pull the rating back out of the draft
       const savedRating = session.draft.rating;
 
@@ -356,7 +377,7 @@ case "AWAIT_FEEDBACK_RATING": {
       session.step = "START";
       session.draft = {};
       await session.save();
-      
+
       return wa.sendText(phone, "🙏 Thank you for your feedback!");
     }
     case "ASK_SERVICE": {

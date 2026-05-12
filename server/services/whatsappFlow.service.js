@@ -313,41 +313,51 @@ async function handleIncoming(payload, io) {
       return sendWelcomeMenu(phone);
     }
 
-    case "AWAIT_FEEDBACK_RATING": {
-      const ratingMap = { "RATING_5": 5, "RATING_3": 3, "RATING_1": 1 };
-      const rating = ratingMap[incomingValue];
-      
-      if (!rating) return sendRatingButtons(phone);
+case "AWAIT_FEEDBACK_RATING": {
+      const ratings = { RATING_5: 5, RATING_3: 3, RATING_1: 1 };
+      const selectedRating = ratings[incomingValue];
 
-      session.draft.rating = rating;
+      if (!selectedRating) {
+        return wa.sendText(phone, "Please select a rating using the buttons above.");
+      }
+
+      // Explicitly set the rating in the draft object
+      session.draft = { 
+        ...session.draft, 
+        rating: selectedRating 
+      };
+      
       session.step = "AWAIT_FEEDBACK_REVIEW";
+      
+      // Mark draft as modified to ensure Mongoose saves the nested object
+      session.markModified('draft'); 
       await session.save();
 
       return wa.sendButtons(phone, {
-        body: "Would you like to write a short review? Or click Skip to finish.",
-        buttons: [{ id: "SKIP_REVIEW", title: "Skip & Send" }]
+        body: "Please type a short review, or click skip.",
+        buttons: [{ id: "SKIP_REVIEW", title: "Skip" }],
       });
     }
 
     case "AWAIT_FEEDBACK_REVIEW": {
-      const reviewText = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
+      const review = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
+      
+      // Pull the rating back out of the draft
+      const savedRating = session.draft.rating;
 
-      try {
-        await Feedback.create({
-          fk_booking_id: session.draft.bookingId,
-          user_whatsapp_number: phone,
-          rating: session.draft.rating,
-          review: reviewText
-        });
+      await Feedback.create({
+        fk_booking_id: session.draft.bookingId,
+        user_whatsapp_number: phone,
+        rating: savedRating, // This will now have the value
+        review: review,
+      });
 
-        session.step = "START";
-        session.draft = {};
-        await session.save();
-        return wa.sendText(phone, "Thank you! Your feedback has been saved. 🙏");
-      } catch (err) {
-        console.error("Feedback Save Error:", err);
-        return wa.sendText(phone, "Sorry, there was an error saving your feedback.");
-      }
+      // Clear session after successful save
+      session.step = "START";
+      session.draft = {};
+      await session.save();
+      
+      return wa.sendText(phone, "🙏 Thank you for your feedback!");
     }
     case "ASK_SERVICE": {
       console.log("[wa-flow] ASK_SERVICE recv", {

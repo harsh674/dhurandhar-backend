@@ -342,28 +342,15 @@ async function handleIncoming(payload, io) {
         );
       }
 
-      console.log(
-        "[wa-flow] selected rating",
-        {
-          phone,
-          selectedRating,
-        },
-        session.draft,
-      );
-
-      // Explicitly set the rating in the draft object
-      session.draft = {
-        ...session.draft,
-        rating: selectedRating,
-      };
+      // Use .set() to update ONLY the rating field inside the draft.
+      // This avoids re-validating the existing draft.address object.
+      session.set("draft.rating", selectedRating);
 
       session.step = "AWAIT_FEEDBACK_REVIEW";
 
-      // Tell Mongoose the nested 'draft' object has changed
+      // We still mark it modified to be safe with nested objects
       session.markModified("draft");
-      console.log("Done")
       await session.save();
-      console.log("D")
 
       return wa.sendButtons(phone, {
         body: "Please type a short review, or click skip.",

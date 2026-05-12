@@ -5,6 +5,20 @@ const bookingService = require("./booking.service");
 const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
 
+async function getOrCreateSession(phone) {
+  let s = await Session.findOne({ phone });
+
+  if (!s) {
+    s = await Session.create({
+      phone,
+      step: "IDLE",
+      draft: {},
+    });
+  }
+
+  return s;
+}
+
 function extractMessage(msg) {
   if (msg?.interactive?.list_reply) {
     return msg.interactive.list_reply.id;

@@ -8,7 +8,7 @@ const wa = require("./whatsapp.service");
 const { URGENCY } = require("../constants");
 
 const SERVICE_PROMPT = "Hi 👋 Welcome to ServiQ. Reply with the service you need:\n1. Plumber\n2. Electrician\n3. AC Repair\n4. Cleaning\n5. Carpenter\n6. Mechanic";
-const URGENCY_PROMPT = "How urgent? Reply: LOW / NORMAL / HIGH / EMERGENCY";
+const URGENCY_PROMPT = "How urgent? Reply: LOW / NORMAL / HIGH / EMERGENCY  ";
 
 async function getOrCreateSession(phone) {
   let s = await Session.findOne({ phone });

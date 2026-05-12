@@ -128,7 +128,18 @@ async function sendUrgencyButtons(phone) {
         id: "EMERGENCY",
         title: "EMERGENCY",
       },
+      {
+        id: "BACK_TO_ISSUE",
+        title: "⬅ Back",
+      },
     ],
+  });
+}
+
+async function sendIssuePrompt(phone, serviceName) {
+  return wa.sendButtons(phone, {
+    body: `Got it 👍\nDescribe your issue with ${serviceName}.`,
+    buttons: [{ id: "BACK_TO_SERVICE", title: "⬅ Back" }],
   });
 }
 
@@ -253,10 +264,7 @@ async function handleIncoming(payload, io) {
 
       await session.save();
 
-      return wa.sendText(
-        phone,
-        `Got it 👍\nDescribe your issue with ${service.serviceName}.\n\nType 'back' to change service.`,
-      );
+      return sendIssuePrompt(phone, service.serviceName);
     }
 
     case "VIEW_ACTIVE_BOOKINGS": {
@@ -327,7 +335,10 @@ async function handleIncoming(payload, io) {
     }
 
     case "ASK_ISSUE": {
-      if (incomingValue.toLowerCase() === "back") {
+      if (
+        incomingValue === "BACK_TO_SERVICE" ||
+        incomingValue.toLowerCase() === "back"
+      ) {
         session.step = "ASK_SERVICE";
 
         await session.save();
@@ -345,6 +356,12 @@ async function handleIncoming(payload, io) {
     }
 
     case "ASK_URGENCY": {
+      if (incomingValue === "BACK_TO_ISSUE") {
+        session.step = "ASK_ISSUE";
+        await session.save();
+        return sendIssuePrompt(phone, session.draft.serviceName);
+      }
+
       const urgency = incomingValue.toUpperCase();
 
       if (!Object.values(URGENCY).includes(urgency)) {

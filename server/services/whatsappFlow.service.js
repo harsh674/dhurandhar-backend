@@ -358,26 +358,32 @@ async function handleIncoming(payload, io) {
       });
     }
 
-    case "AWAIT_FEEDBACK_REVIEW": {
+   case "AWAIT_FEEDBACK_REVIEW": {
       const review = incomingValue === "SKIP_REVIEW" ? "" : incomingValue;
 
-      // LOG THIS: Check your console to see if rating is actually here
-      console.log("Saving Feedback - Rating:", session.draft.rating);
+      // CRITICAL: Re-fetch the session from DB to get the rating saved in the previous step
+      const freshSession = await Session.findById(session._id);
+      
+      const savedRating = freshSession.draft?.rating;
 
-      // Pull the rating back out of the draft
-      const savedRating = session.draft.rating;
+      // Debug log to verify it's working
+      console.log("Saving Feedback - Rating from DB:", savedRating);
+
+      if (savedRating === undefined || savedRating === null) {
+        return wa.sendText(phone, "Session error. Please try giving feedback again from the menu.");
+      }
 
       await Feedback.create({
-        fk_booking_id: session.draft.bookingId,
+        fk_booking_id: freshSession.draft.bookingId,
         user_whatsapp_number: phone,
-        rating: Number(savedRating), // This will now have the value
+        rating: Number(savedRating),
         review: review,
       });
 
-      // Clear session after successful save
-      session.step = "START";
-      session.draft = {};
-      await session.save();
+      // Clear session using the fresh instance
+      freshSession.step = "START";
+      freshSession.draft = {};
+      await freshSession.save();
 
       return wa.sendText(phone, "🙏 Thank you for your feedback!");
     }

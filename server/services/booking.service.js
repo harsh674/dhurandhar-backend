@@ -124,27 +124,58 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
 
 exports.updateStatus = async (bookingId, { status, note, finalAmount }, actor) => {
   const booking = await Booking.findById(bookingId);
-  if (!booking) throw new ApiError(404, "Booking not found");
-  const allowed = BOOKING_TRANSITIONS[booking.status] || [];
-  if (!allowed.includes(status)) {
-    throw new ApiError(409, `Illegal transition ${booking.status} → ${status}`);
+
+  if (!booking) {
+    throw new ApiError(404, "Booking not found");
+  }
+
+  // Only enforce transitions for technicians
+  const isAdmin = actor.startsWith("admin:");
+
+  if (!isAdmin) {
+    const allowed = BOOKING_TRANSITIONS[booking.status] || [];
+
+    if (!allowed.includes(status)) {
+      throw new ApiError(
+        409,
+        `Illegal transition ${booking.status} → ${status}`
+      );
+    }
   }
 
   booking.status = status;
-  booking.timeline.push({ status, by: actor, note });
+
+  booking.timeline.push({
+    status,
+    by: actor,
+    note,
+  });
 
   const now = new Date();
+
   if (status === BOOKING_STATUS.ACCEPTED) booking.acceptedAt = now;
+
   if (status === BOOKING_STATUS.STARTED) booking.startedAt = now;
+
   if (status === BOOKING_STATUS.CANCELLED) {
     booking.cancelledAt = now;
     booking.cancelReason = note;
   }
+
   if (status === BOOKING_STATUS.COMPLETED) {
     booking.completedAt = now;
-    if (typeof finalAmount === "number") booking.finalAmount = finalAmount;
-    if (!booking.finalAmount) booking.finalAmount = booking.estimatedAmount;
-    booking.commission = +(booking.finalAmount * COMMISSION_RATE).toFixed(2);
+
+    if (typeof finalAmount === "number") {
+      booking.finalAmount = finalAmount;
+    }
+
+    if (!booking.finalAmount) {
+      booking.finalAmount = booking.estimatedAmount;
+    }
+
+    booking.commission = +(
+      booking.finalAmount * COMMISSION_RATE
+    ).toFixed(2);
 
     if (booking.technician) {
       await Technician.findByIdAndUpdate(booking.technician, {
@@ -153,13 +184,21 @@ exports.updateStatus = async (bookingId, { status, note, finalAmount }, actor) =
           earnings: booking.finalAmount - booking.commission,
           commissionDue: booking.commission,
         },
-        $set: { currentStatus: TECH_STATUS.AVAILABLE },
+        $set: {
+          currentStatus: TECH_STATUS.AVAILABLE,
+        },
       });
     }
-    await Customer.findByIdAndUpdate(booking.customer, { $inc: { totalSpend: booking.finalAmount } });
+
+    await Customer.findByIdAndUpdate(booking.customer, {
+      $inc: {
+        totalSpend: booking.finalAmount,
+      },
+    });
   }
 
   await booking.save();
+
   return booking;
 };
 

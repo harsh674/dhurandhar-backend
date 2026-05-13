@@ -2,6 +2,8 @@ const Booking = require("../models/Booking");
 const Customer = require("../models/Customer");
 const Service = require("../models/Service");
 const Technician = require("../models/Technician");
+const axios=require("axios");
+
 const ApiError = require("../utils/ApiError");
 const {
   BOOKING_STATUS,
@@ -22,6 +24,33 @@ async function upsertCustomer({ phone, name }, source = "admin") {
   }
   return customer;
 }
+
+async function sendSms(customerPhone, message) {
+    const masterApiKey = process.env.HTTP_SMS_API_KEY; 
+    
+    const payload = {
+        from: process.env.SERVIQ_PHONE_NUMBER, // Your ServiQ WhatsApp number 
+        to: `+${customerPhone}`,        
+        content: message
+    };
+    console.log("SMS Payload:", payload);
+    try {
+        const response = await axios.post('https://api.httpsms.com/v1/messages/send', payload, {
+            headers: {
+                'x-api-key': masterApiKey, // Must be the master token
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('SMS sent successfully!');
+        console.log('Message ID:', response.data.data.id);
+        console.log('Status:', response.data.data.status);
+    } catch (error) {
+        console.error('Error sending SMS:', error.response ? error.response.data : error.message);
+    }
+}
+
+
 
 exports.createBooking = async (payload, io) => {
   const service = await Service.findById(payload.serviceId);
@@ -118,6 +147,8 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
     by: actor,
     note: `Assigned to ${tech.name}`,
   });
+  console.log("SMS Details",tech.name, tech.phone, booking.customerSnapshot.phone);
+  sendSms(tech.phone, `Hi ${tech.name} you have been assigned with Booking ID ${booking.code}. Please contact ${booking.customerSnapshot.phone}.`);
   await booking.save();
   return booking;
 };

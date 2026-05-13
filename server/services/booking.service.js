@@ -168,12 +168,7 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
     booking.address.line1 === "WHATS_APP_LOCATION"
       ? `https://www.google.com/maps/search/?api=1&query=${booking.address.latitude},${booking.address.longitude}`
       : `${booking.address.line1}, ${booking.address.pincode}`;
-  console.log(
-    "SMS Details",
-    tech.name,
-    tech.phone,
-    booking.customerSnapshot.phone,
-  );
+  console.log("SMS Details", tech.name, tech.phone, booking);
   sendSms(
     tech.phone,
     `Hi ${tech.name} you have been assigned with Booking ID ${booking.code}. Please contact ${booking.customerSnapshot.phone}. Service: ${booking.serviceName}, Issue: ${booking.issueType}, Urgency: ${booking.urgency}, Location: ${address}`,

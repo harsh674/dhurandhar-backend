@@ -538,6 +538,12 @@ async function handleIncoming(payload, io) {
           "📍 Please share your current location for faster technician assignment.",
         );
       }
+      console.log("[wa-flow] ASK_LOCATION recv", {
+        phone,
+        incomingValue,
+        msg
+      });
+
 
       // User shared actual WhatsApp location
       if (msg.location) {

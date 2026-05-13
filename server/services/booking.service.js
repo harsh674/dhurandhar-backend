@@ -64,6 +64,16 @@ exports.createBooking = async (payload, io) => {
 
   const customer = await upsertCustomer(payload.customer, payload.source);
 
+  // Normalize address: preserve provided fields and ensure latitude/longitude and geo are set when available
+  const addr = Object.assign({}, payload.address || {});
+  const lat = addr.latitude ?? addr.lat ?? (addr.geo && addr.geo.lat);
+  const lng = addr.longitude ?? addr.lng ?? (addr.geo && addr.geo.lng);
+  if (lat != null && lng != null) {
+    addr.latitude = Number(lat);
+    addr.longitude = Number(lng);
+    addr.geo = { lat: Number(lat), lng: Number(lng) };
+  }
+
   const booking = await Booking.create({
     code: genCode(),
     customer: customer.id,
@@ -73,7 +83,7 @@ exports.createBooking = async (payload, io) => {
     issueType: payload.issueType,
     description: payload.description,
     urgency: payload.urgency,
-    address: payload.address,
+    address: addr,
     visitCharge: service.visitCharge,
     estimatedAmount: service.visitCharge,
     status: BOOKING_STATUS.NEW,
@@ -164,10 +174,13 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
     by: actor,
     note: `Assigned to ${tech.name}`,
   });
+  // Build location string: prefer explicit lat/lng, fall back to address text
+  const lat = booking.address?.latitude ?? booking.address?.geo?.lat;
+  const lng = booking.address?.longitude ?? booking.address?.geo?.lng;
   const address =
-    booking.address.line1 === "WHATS_APP_LOCATION"
-      ? `https://www.google.com/maps/search/?api=1&query=${booking.address.latitude},${booking.address.longitude}`
-      : `${booking.address.line1}, ${booking.address.pincode}`;
+    booking.address?.line1 === "WHATS_APP_LOCATION" && lat != null && lng != null
+      ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+      : `${booking.address?.line1 || ""}${booking.address?.pincode ? `, ${booking.address.pincode}` : ""}`;
   console.log("SMS Details", tech.name, tech.phone, booking);
   sendSms(
     tech.phone,

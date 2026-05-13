@@ -30,7 +30,7 @@ async function sendSms(customerPhone, message) {
     
     const payload = {
         from: process.env.SERVIQ_PHONE_NUMBER, // Your ServiQ WhatsApp number 
-        to: `+${customerPhone}`,        
+        to: `+91${customerPhone}`,        
         content: message
     };
     console.log("SMS Payload:", payload);

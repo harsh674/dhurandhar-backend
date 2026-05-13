@@ -2,6 +2,7 @@ const Booking = require("../models/Booking");
 const Customer = require("../models/Customer");
 const Service = require("../models/Service");
 const Technician = require("../models/Technician");
+const wa = require("./whatsapp.service");
 const axios = require("axios");
 
 const ApiError = require("../utils/ApiError");
@@ -187,6 +188,21 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
     `Hi ${tech.name} you have been assigned with Booking ID ${booking.code}. Please contact ${booking.customerSnapshot.phone}. Service: ${booking.serviceName}, Issue: ${booking.issueType}, Urgency: ${booking.urgency}, Location: ${address}`,
   );
   await booking.save();
+
+  // Notify customer on WhatsApp that technician has been assigned
+  try {
+    const customerPhone = (booking.customerSnapshot?.phone || "").replace(/^\+/, "");
+    const techContact = tech.phone || "\u2014";
+    const customerMsg = `Your booking ${booking.code} has been assigned to ${tech.name} (${techContact}). They will contact you shortly.\nService: ${booking.serviceName}\nIssue: ${booking.issueType}\nLocation: ${address}`;
+    console.log("[booking] sending WhatsApp notification to customer", {
+      customerPhone,
+      customerMsg,
+    });
+    await wa.sendText(customerPhone, customerMsg);
+  } catch (err) {
+    console.error('[booking] failed to send WhatsApp notification to customer', err);
+  }
+
   return booking;
 };
 

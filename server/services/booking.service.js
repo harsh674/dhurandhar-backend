@@ -2,7 +2,7 @@ const Booking = require("../models/Booking");
 const Customer = require("../models/Customer");
 const Service = require("../models/Service");
 const Technician = require("../models/Technician");
-const axios=require("axios");
+const axios = require("axios");
 
 const ApiError = require("../utils/ApiError");
 const {
@@ -26,35 +26,41 @@ async function upsertCustomer({ phone, name }, source = "admin") {
 }
 
 async function sendSms(customerPhone, message) {
-    const masterApiKey = process.env.HTTP_SMS_API_KEY; 
-    
-    const payload = {
-        from: process.env.SERVIQ_PHONE_NUMBER, // Your ServiQ WhatsApp number 
-        to: `+91${customerPhone}`,        
-        content: message
-    };
-    console.log("SMS Payload:", payload);
-    try {
-        const response = await axios.post('https://api.httpsms.com/v1/messages/send', payload, {
-            headers: {
-                'x-api-key': masterApiKey, // Must be the master token
-                'Content-Type': 'application/json'
-            }
-        });
+  const masterApiKey = process.env.HTTP_SMS_API_KEY;
 
-        console.log('SMS sent successfully!');
-        console.log('Message ID:', response.data.data.id);
-        console.log('Status:', response.data.data.status);
-    } catch (error) {
-        console.error('Error sending SMS:', error.response ? error.response.data : error.message);
-    }
+  const payload = {
+    from: process.env.SERVIQ_PHONE_NUMBER, // Your ServiQ WhatsApp number
+    to: `+91${customerPhone}`,
+    content: message,
+  };
+  console.log("SMS Payload:", payload);
+  try {
+    const response = await axios.post(
+      "https://api.httpsms.com/v1/messages/send",
+      payload,
+      {
+        headers: {
+          "x-api-key": masterApiKey, // Must be the master token
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    console.log("SMS sent successfully!");
+    console.log("Message ID:", response.data.data.id);
+    console.log("Status:", response.data.data.status);
+  } catch (error) {
+    console.error(
+      "Error sending SMS:",
+      error.response ? error.response.data : error.message,
+    );
+  }
 }
-
-
 
 exports.createBooking = async (payload, io) => {
   const service = await Service.findById(payload.serviceId);
-  if (!service || !service.isActive) throw new ApiError(404, "Service not found");
+  if (!service || !service.isActive)
+    throw new ApiError(404, "Service not found");
 
   const customer = await upsertCustomer(payload.customer, payload.source);
 
@@ -73,14 +79,25 @@ exports.createBooking = async (payload, io) => {
     status: BOOKING_STATUS.NEW,
     paymentStatus: PAYMENT_STATUS.PENDING,
     source: payload.source,
-    timeline: [{ status: BOOKING_STATUS.NEW, by: payload.source, note: "Booking created" }],
+    timeline: [
+      {
+        status: BOOKING_STATUS.NEW,
+        by: payload.source,
+        note: "Booking created",
+      },
+    ],
   });
 
   customer.bookingHistory.push(booking.id);
   customer.totalBookings += 1;
   await customer.save();
 
-  if (io) io.emit("booking:new", { id: booking.id, code: booking.code, status: booking.status });
+  if (io)
+    io.emit("booking:new", {
+      id: booking.id,
+      code: booking.code,
+      status: booking.status,
+    });
   return booking;
 };
 
@@ -147,13 +164,29 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
     by: actor,
     note: `Assigned to ${tech.name}`,
   });
-  console.log("SMS Details",tech.name, tech.phone, booking.customerSnapshot.phone);
-  sendSms(tech.phone, `Hi ${tech.name} you have been assigned with Booking ID ${booking.code}. Please contact ${booking.customerSnapshot.phone} at ${booking.address}.`);
+  const address =
+    booking.address.line1 === "WHATS_APP_LOCATION"
+      ? `https://www.google.com/maps/search/?api=1&query=${booking.address.latitude},${booking.address.longitude}`
+      : `${booking.address.line1}, ${booking.address.pincode}`;
+  console.log(
+    "SMS Details",
+    tech.name,
+    tech.phone,
+    booking.customerSnapshot.phone,
+  );
+  sendSms(
+    tech.phone,
+    `Hi ${tech.name} you have been assigned with Booking ID ${booking.code}. Please contact ${booking.customerSnapshot.phone}. Service: ${booking.serviceName}, Issue: ${booking.issueType}, Urgency: ${booking.urgency}, Location: ${address}`,
+  );
   await booking.save();
   return booking;
 };
 
-exports.updateStatus = async (bookingId, { status, note, finalAmount }, actor) => {
+exports.updateStatus = async (
+  bookingId,
+  { status, note, finalAmount },
+  actor,
+) => {
   const booking = await Booking.findById(bookingId);
 
   if (!booking) {
@@ -169,7 +202,7 @@ exports.updateStatus = async (bookingId, { status, note, finalAmount }, actor) =
     if (!allowed.includes(status)) {
       throw new ApiError(
         409,
-        `Illegal transition ${booking.status} → ${status}`
+        `Illegal transition ${booking.status} → ${status}`,
       );
     }
   }
@@ -204,9 +237,7 @@ exports.updateStatus = async (bookingId, { status, note, finalAmount }, actor) =
       booking.finalAmount = booking.estimatedAmount;
     }
 
-    booking.commission = +(
-      booking.finalAmount * COMMISSION_RATE
-    ).toFixed(2);
+    booking.commission = +(booking.finalAmount * COMMISSION_RATE).toFixed(2);
 
     if (booking.technician) {
       await Technician.findByIdAndUpdate(booking.technician, {
@@ -247,4 +278,8 @@ exports.attachMedia = async (bookingId, files) => {
 };
 
 exports.cancel = async (bookingId, reason, actor) =>
-  exports.updateStatus(bookingId, { status: BOOKING_STATUS.CANCELLED, note: reason }, actor);
+  exports.updateStatus(
+    bookingId,
+    { status: BOOKING_STATUS.CANCELLED, note: reason },
+    actor,
+  );

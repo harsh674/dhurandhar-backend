@@ -548,7 +548,7 @@ async function handleIncoming(payload, io) {
       // User shared actual WhatsApp location
       if (msg.location) {
         session.draft.address = {
-          line1: "Shared via WhatsApp location",
+          line1: "WHATS_APP_LOCATION",
           latitude: msg.location.latitude,
           longitude: msg.location.longitude,
           name: msg.location.name || "",

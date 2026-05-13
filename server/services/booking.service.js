@@ -148,7 +148,7 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
     note: `Assigned to ${tech.name}`,
   });
   console.log("SMS Details",tech.name, tech.phone, booking.customerSnapshot.phone);
-  sendSms(tech.phone, `Hi ${tech.name} you have been assigned with Booking ID ${booking.code}. Please contact ${booking.customerSnapshot.phone}.`);
+  sendSms(tech.phone, `Hi ${tech.name} you have been assigned with Booking ID ${booking.code}. Please contact ${booking.customerSnapshot.phone} at ${booking.address}.`);
   await booking.save();
   return booking;
 };

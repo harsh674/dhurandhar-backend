@@ -133,22 +133,25 @@ async function sendRatingButtons(phone) {
 
 async function sendUrgencyButtons(phone) {
   return wa.sendButtons(phone, {
-    body: "How urgent is your issue?",
-    buttons: [
-      {
-        id: "LOW",
-        title: "LOW",
-      },
-      {
-        id: "HIGH",
-        title: "HIGH",
-      },
-      {
-        id: "EMERGENCY",
-        title: "EMERGENCY",
-      },
-    ],
-  });
+  body:
+    "⏰ *How urgent is your issue?*\n\n" +
+    "This helps us prioritize technician assignment.",
+
+  buttons: [
+    {
+      id: "LOW",
+      title: "🟢 Normal",
+    },
+    {
+      id: "HIGH",
+      title: "🟠 Urgent",
+    },
+    {
+      id: "EMERGENCY",
+      title: "🔴 Emergency",
+    },
+  ],
+});
 }
 
 async function sendConfirmationButtons(phone, draft) {
@@ -190,24 +193,26 @@ async function sendConfirmationButtons(phone, draft) {
 }
 
 async function sendLocationOptions(phone) {
-  return wa.sendButtons(phone, {
-    body: "📍 Choose how you'd like to share your location",
+return wa.sendButtons(phone, {
+  body:
+    "📍 *Choose Your Location Sharing Method*\n\n" +
+    "Sharing your location helps us assign the nearest technician faster.",
 
-    buttons: [
-      {
-        id: "SHARE_LOCATION",
-        title: "Location",
-      },
-      {
-        id: "MANUAL_ADDRESS",
-        title: "Manual",
-      },
-      {
-        id: "BACK_TO_URGENCY",
-        title: "⬅ Back",
-      },
-    ],
-  });
+  buttons: [
+    {
+      id: "SHARE_LOCATION",
+      title: "📡 Live Location",
+    },
+    {
+      id: "MANUAL_ADDRESS",
+      title: "✍️ Enter Address",
+    },
+    {
+      id: "BACK_TO_URGENCY",
+      title: "⬅️ Go Back",
+    },
+  ],
+});
 }
 
 async function handleIncoming(payload, io) {
@@ -435,11 +440,19 @@ async function handleIncoming(payload, io) {
 
       await session.save();
 
-      return wa.sendText(
-        phone,
-        `Got it 👍\nDescribe your issue with ${service.serviceName}.\n\nType 'back' to change service.`,
-      );
-    }
+    return wa.sendText(
+  phone,
+  `🛠 *${service.serviceName} Service Selected*
+
+Please briefly describe the issue you're facing.
+
+Example:
+• Water leakage
+• Tap not working
+• Pipe blockage
+
+⬅️ Type *back* to change service.`,
+);
 
     case "VIEW_ACTIVE_BOOKINGS": {
       // User selected a booking from the list (id will be the booking _id)
@@ -527,7 +540,7 @@ async function handleIncoming(payload, io) {
 
   return wa.sendText(
     phone,
-    "👤 Please enter your full name."
+    "👤 Please enter your full name for the booking."
   );
 }
 

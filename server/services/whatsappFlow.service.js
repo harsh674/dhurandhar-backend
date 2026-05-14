@@ -167,7 +167,7 @@ async function sendConfirmationButtons(phone, draft) {
   `📍 *Location* : ${
     draft.address.line1 === "WHATS_APP_LOCATION"
       ? "Live Location Shared"
-      : draft.address.line1
+      : draft.address?.line1
   }\n\n` +
 
   `Please confirm your booking below 👇`,
@@ -430,7 +430,7 @@ async function handleIncoming(payload, io) {
 
       session.draft.serviceId = service._id;
       session.draft.serviceName = service.serviceName;
-
+      session.markModified("draft");
       session.step = "ASK_ISSUE";
 
       await session.save();
@@ -519,7 +519,8 @@ async function handleIncoming(payload, io) {
   }
 
   session.draft.issueType = incomingValue;
-
+     
+  session.markModified("draft");
   session.step = "ASK_NAME";
 
   await session.save();
@@ -573,6 +574,8 @@ return sendUrgencyButtons(phone);
 
       session.draft.urgency = urgency;
 
+      session.markModified("draft");
+
       session.step = "ASK_LOCATION";
 
       await session.save();
@@ -604,7 +607,7 @@ return sendUrgencyButtons(phone);
           name: msg.location.name || "",
           address: msg.location.address || "",
         };
-
+        session.markModified("draft");
         session.step = "CONFIRM";
 
         await session.save();
@@ -654,7 +657,7 @@ return sendUrgencyButtons(phone);
         line1: incomingValue,
         pincode: pin,
       };
-
+      session.markModified("draft");
       session.step = "CONFIRM";
 
       await session.save();

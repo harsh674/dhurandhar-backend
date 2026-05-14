@@ -18,12 +18,31 @@ const {
 const genCode = () => "SQ-" + Math.floor(10000 + Math.random() * 89999);
 
 async function upsertCustomer({ phone, name }, source = "admin") {
+
   let customer = await Customer.findOne({ phone });
-  if (!customer) customer = await Customer.create({ phone, name, source });
-  else if (name && !customer.name) {
-    customer.name = name;
+
+  // Create new customer
+  if (!customer) {
+    customer = await Customer.create({
+      phone,
+      name: name?.trim(),
+      source,
+    });
+
+    return customer;
+  }
+
+  // Update name if provided and different
+  if (
+    name &&
+    name.trim() &&
+    customer.name !== name.trim()
+  ) {
+    customer.name = name.trim();
+
     await customer.save();
   }
+
   return customer;
 }
 

@@ -49,11 +49,11 @@ async function upsertCustomer({ phone, name }, source = "admin") {
 async function sendSms(customerPhone, message) {
   const masterApiKey = process.env.HTTP_SMS_API_KEY;
 
-  const payload = {
-    from: process.env.SERVIQ_PHONE_NUMBER, // Your ServiQ WhatsApp number
-    to: `+91${customerPhone}`,
-    content: message,
-  };
+  const payload =   {
+    "to": `+91${customerPhone}`,
+    "message": message
+};
+
   try {
     const response = await axios.post(
       "https://www.traccar.org/sms/",

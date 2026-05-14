@@ -433,62 +433,106 @@ async function handleIncoming(payload, io) {
 
       return wa.sendText(phone, "🙏 Thank you for your feedback!");
     }
+      
     case "ASK_SERVICE": {
-      console.log("[wa-flow] ASK_SERVICE recv", {
-        phone,
-        incomingValue,
-      });
+  console.log("[wa-flow] ASK_SERVICE recv", {
+    phone,
+    incomingValue,
+  });
 
-      // User requested to check active bookings
-      if (incomingValue === "CHECK_ACTIVE_BOOKING") {
-        session.step = "VIEW_ACTIVE_BOOKINGS";
-        session.draft = {};
+  // User requested to check active bookings
+  if (incomingValue === "CHECK_ACTIVE_BOOKING") {
+    session.step = "VIEW_ACTIVE_BOOKINGS";
+    session.draft = {};
 
-        await session.save();
+    await session.save();
 
-        return sendActiveBookingsList(phone);
-      }
+    return sendActiveBookingsList(phone);
+  }
 
-      let service = null;
+  let service = null;
 
-      // Only search by ObjectId if valid
-      if (incomingValue && /^[0-9a-fA-F]{24}$/.test(incomingValue)) {
-        service = await Service.findById(incomingValue);
-      }
+  // Only search by ObjectId if valid
+  if (incomingValue && /^[0-9a-fA-F]{24}$/.test(incomingValue)) {
+    service = await Service.findById(incomingValue);
+  }
 
-      // Fallback text matching
-      if (!service) {
-        service = await Service.findOne({
-          serviceName: new RegExp(incomingValue, "i"),
-        });
-      }
+  // Fallback text matching
+  if (!service) {
+    service = await Service.findOne({
+      serviceName: new RegExp(incomingValue, "i"),
+    });
+  }
 
-      // Still not found
-      if (!service) {
-        return sendServiceList(phone);
-      }
+  // Still not found
+  if (!service) {
+    return sendServiceList(phone);
+  }
 
-      session.draft.serviceId = service._id;
-      session.draft.serviceName = service.serviceName;
-      session.markModified("draft");
-      session.step = "ASK_ISSUE";
+  session.draft.serviceId = service._id;
+  session.draft.serviceName = service.serviceName;
 
-      await session.save();
+  session.markModified("draft");
 
-    return wa.sendText(
-  phone,
-  `🛠 *${service.serviceName} Service Selected*
+  session.step = "ASK_ISSUE";
+
+  await session.save();
+
+  const serviceIssueExamples = {
+    Plumbing: [
+      "Water leakage",
+      "Tap not working",
+      "Pipe blockage",
+    ],
+
+    Electrical: [
+      "Switch not working",
+      "Power outage",
+      "Fan or light issue",
+    ],
+
+    "AC Repair": [
+      "AC not cooling",
+      "Water dripping",
+      "Strange AC noise",
+    ],
+
+    Cleaning: [
+      "Deep home cleaning",
+      "Bathroom cleaning",
+      "Office cleaning",
+    ],
+
+    Carpentry: [
+      "Furniture repair",
+      "Door issue",
+      "Woodwork installation",
+    ],
+
+    Mechanic: [
+      "Bike not starting",
+      "Engine issue",
+      "Brake problem",
+    ],
+  };
+
+  const examples =
+    serviceIssueExamples[service.serviceName] || [
+      "Describe your issue briefly",
+    ];
+
+  return wa.sendText(
+    phone,
+    `🛠 *${service.serviceName} Service Selected*
 
 Please briefly describe the issue you're facing.
 
 Example:
-• Water leakage
-• Tap not working
-• Pipe blockage
+${examples.map((e) => `• ${e}`).join("\n")}
 
 ⬅️ Type *back* to change service.`,
-);
-    }
+  );
+}
 
     case "VIEW_ACTIVE_BOOKINGS": {
       // User selected a booking from the list (id will be the booking _id)

@@ -390,7 +390,7 @@ Thank you for choosing *ServiQ* 🙌`;
 await booking.save();
 
 return booking;
-
+};
 exports.attachMedia = async (bookingId, files) => {
   const booking = await Booking.findById(bookingId);
   if (!booking) throw new ApiError(404, "Booking not found");

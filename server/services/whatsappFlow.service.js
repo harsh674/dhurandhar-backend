@@ -542,11 +542,16 @@ if (
   );
 }
   
-  session.draft.customerName = incomingValue;
+ session.draft = {
+  ...session.draft,
+  customerName: incomingValue,
+};
 
-  session.step = "ASK_URGENCY";
+session.markModified("draft");
 
-  await session.save();
+session.step = "ASK_URGENCY";
+
+await session.save();
 
   return sendUrgencyButtons(phone);
 }

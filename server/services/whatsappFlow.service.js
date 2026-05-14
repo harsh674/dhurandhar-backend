@@ -681,6 +681,9 @@ if (
       }
 
       try {
+        console.log("FINAL SESSION DRAFT:", session.draft);
+
+console.log("CUSTOMER NAME:", session.draft.customerName);
         const booking = await bookingService.createBooking(
           {
             customer: {

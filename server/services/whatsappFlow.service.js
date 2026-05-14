@@ -153,28 +153,39 @@ async function sendUrgencyButtons(phone) {
 
 async function sendConfirmationButtons(phone, draft) {
   return wa.sendButtons(phone, {
-   body:
-  `Confirm your booking:\n\n` +
-  `Customer: ${draft.customerName}\n` +
-  `Service: ${draft.serviceName}\n` +
-  `Issue: ${draft.issueType}\n` +
-  `Urgency: ${draft.urgency}\n` +
-  `Address: ${draft.address.line1}`,
+ body:
+  `📋 *Booking Summary*\n\n` +
+
+  `👤 *Customer* : ${draft.customerName}\n` +
+
+  `🛠 *Service* : ${draft.serviceName}\n` +
+
+  `📌 *Issue* : ${draft.issueType}\n` +
+
+  `🚨 *Urgency* : ${draft.urgency}\n` +
+
+  `📍 *Location* : ${
+    draft.address.line1 === "WHATS_APP_LOCATION"
+      ? "Live Location Shared"
+      : draft.address.line1
+  }\n\n` +
+
+  `Please confirm your booking below 👇`,
 
     buttons: [
-      {
-        id: "CONFIRM_BOOKING",
-        title: "Confirm",
-      },
-      {
-        id: "EDIT_BOOKING",
-        title: "Edit",
-      },
-      {
-        id: "CANCEL_BOOKING",
-        title: "Cancel",
-      },
-    ],
+  {
+    id: "CONFIRM_BOOKING",
+    title: "✅ Confirm",
+  },
+  {
+    id: "EDIT_BOOKING",
+    title: "✏️ Edit",
+  },
+  {
+    id: "CANCEL_BOOKING",
+    title: "❌ Cancel",
+  },
+],
   });
 }
 

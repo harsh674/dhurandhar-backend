@@ -17,6 +17,7 @@ const waSessionSchema = new mongoose.Schema(
         "START",
         "ASK_SERVICE",
         "ASK_ISSUE",
+        "ASK_NAME",
         "ASK_URGENCY",
         "ASK_LOCATION",
         "ASK_MANUAL_ADDRESS",

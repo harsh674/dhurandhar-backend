@@ -67,8 +67,7 @@ async function sendSms(customerPhone, message) {
     );
 
     console.log("SMS sent successfully!");
-    console.log("Message ID:", response.responses.messageId);
-    console.log("Status:", response.responses.success);
+    console.log("Message ID:", response);
   } catch (error) {
     console.error(
       "Error sending SMS:",

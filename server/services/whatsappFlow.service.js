@@ -716,10 +716,23 @@ console.log("CUSTOMER NAME:", session.draft.customerName);
 
         await session.save();
 
-        return wa.sendText(
-          phone,
-          `✅ Booking confirmed!\nReference ID: ${booking.code}\nWe'll assign a professional shortly.`,
-        );
+     return wa.sendText(
+  phone,
+  `✅ Booking Confirmed Successfully!
+
+👤 Customer: ${session.draft.customerName}
+🛠 Service: ${session.draft.serviceName}
+📋 Issue: ${session.draft.issueType}
+🚨 Urgency: ${session.draft.urgency}
+
+🆔 Booking ID: ${booking.code}
+
+📍 Our team is now finding the best technician for your request.
+
+⏳ Expected assignment time: 10-20 minutes.
+
+Thank you for choosing ServiQ 🙌`
+);
       } catch (err) {
         console.error("[wa-flow] booking creation failed", err);
 

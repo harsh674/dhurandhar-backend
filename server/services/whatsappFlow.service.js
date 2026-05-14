@@ -722,27 +722,37 @@ console.log("CUSTOMER NAME:", session.draft.customerName);
           code: booking.code,
         });
 
-        session.step = "IDLE";
-        session.draft = {};
+       const bookingSummary = {
+  customerName: session.draft.customerName,
+  serviceName: session.draft.serviceName,
+  issueType: session.draft.issueType,
+  urgency: session.draft.urgency,
+};
 
-        await session.save();
+session.step = "IDLE";
+session.draft = {};
 
-     return wa.sendText(
+await session.save();
+
+return wa.sendText(
   phone,
-  `✅ Booking Confirmed Successfully!
+  `✅ *Booking Confirmed Successfully!*
 
-👤 Customer: ${session.draft.customerName}
-🛠 Service: ${session.draft.serviceName}
-📋 Issue: ${session.draft.issueType}
-🚨 Urgency: ${session.draft.urgency}
+👤 *Customer:* ${bookingSummary.customerName}
 
-🆔 Booking ID: ${booking.code}
+🛠 *Service:* ${bookingSummary.serviceName}
+
+📋 *Issue:* ${bookingSummary.issueType}
+
+🚨 *Urgency:* ${bookingSummary.urgency}
+
+🆔 *Booking ID:* ${booking.code}
 
 📍 Our team is now finding the best technician for your request.
 
-⏳ Expected assignment time: 10-20 minutes.
+⏳ *Expected assignment time:* 10-20 minutes.
 
-Thank you for choosing ServiQ 🙌`
+Thank you for choosing *ServiQ* 🙌`
 );
       } catch (err) {
         console.error("[wa-flow] booking creation failed", err);

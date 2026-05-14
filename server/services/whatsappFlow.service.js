@@ -453,6 +453,7 @@ Example:
 
 ⬅️ Type *back* to change service.`,
 );
+    }
 
     case "VIEW_ACTIVE_BOOKINGS": {
       // User selected a booking from the list (id will be the booking _id)

@@ -42,6 +42,8 @@ const waSessionSchema = new mongoose.Schema(
 
       issueType: String,
 
+      customerName: String,
+
       urgency: String,
 
       address: {

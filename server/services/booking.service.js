@@ -54,22 +54,21 @@ async function sendSms(customerPhone, message) {
     to: `+91${customerPhone}`,
     content: message,
   };
-  console.log("SMS Payload:", payload);
   try {
     const response = await axios.post(
-      "https://api.httpsms.com/v1/messages/send",
+      "https://www.traccar.org/sms/",
       payload,
       {
         headers: {
-          "x-api-key": masterApiKey, // Must be the master token
+          "Authorization": masterApiKey, // Must be the master token
           "Content-Type": "application/json",
         },
       },
     );
 
     console.log("SMS sent successfully!");
-    console.log("Message ID:", response.data.data.id);
-    console.log("Status:", response.data.data.status);
+    console.log("Message ID:", response.responses.messageId);
+    console.log("Status:", response.responses.success);
   } catch (error) {
     console.error(
       "Error sending SMS:",

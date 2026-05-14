@@ -542,10 +542,7 @@ if (
   );
 }
   
- session.draft = {
-  ...session.draft,
-  customerName: incomingValue,
-};
+session.draft.customerName = incomingValue;
 
 session.markModified("draft");
 
@@ -553,8 +550,7 @@ session.step = "ASK_URGENCY";
 
 await session.save();
 
-  return sendUrgencyButtons(phone);
-}
+return sendUrgencyButtons(phone);
 
     case "ASK_URGENCY": {
       const urgency = incomingValue.toUpperCase();

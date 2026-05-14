@@ -306,43 +306,90 @@ exports.updateStatus = async (
     booking.cancelReason = note;
   }
 
-  if (status === BOOKING_STATUS.COMPLETED) {
-    booking.completedAt = now;
+ if (status === BOOKING_STATUS.COMPLETED) {
+  booking.completedAt = now;
 
-    if (typeof finalAmount === "number") {
-      booking.finalAmount = finalAmount;
-    }
+  if (typeof finalAmount === "number") {
+    booking.finalAmount = finalAmount;
+  }
 
-    if (!booking.finalAmount) {
-      booking.finalAmount = booking.estimatedAmount;
-    }
+  if (!booking.finalAmount) {
+    booking.finalAmount = booking.estimatedAmount;
+  }
 
-    booking.commission = +(booking.finalAmount * COMMISSION_RATE).toFixed(2);
+  booking.commission = +(
+    booking.finalAmount * COMMISSION_RATE
+  ).toFixed(2);
 
-    if (booking.technician) {
-      await Technician.findByIdAndUpdate(booking.technician, {
-        $inc: {
-          completedJobs: 1,
-          earnings: booking.finalAmount - booking.commission,
-          commissionDue: booking.commission,
-        },
-        $set: {
-          currentStatus: TECH_STATUS.AVAILABLE,
-        },
-      });
-    }
-
-    await Customer.findByIdAndUpdate(booking.customer, {
+  if (booking.technician) {
+    await Technician.findByIdAndUpdate(booking.technician, {
       $inc: {
-        totalSpend: booking.finalAmount,
+        completedJobs: 1,
+        earnings: booking.finalAmount - booking.commission,
+        commissionDue: booking.commission,
+      },
+      $set: {
+        currentStatus: TECH_STATUS.AVAILABLE,
       },
     });
   }
 
+  await Customer.findByIdAndUpdate(booking.customer, {
+    $inc: {
+      totalSpend: booking.finalAmount,
+    },
+  });
+
   await booking.save();
 
+  try {
+    const customerPhone = (
+      booking.customerSnapshot?.phone || ""
+    ).replace(/^\+/, "");
+
+    const completionMsg = `✅ *Service Completed Successfully!*
+
+Hi ${booking.customerSnapshot?.name || "Customer"},
+
+Your service request has been completed successfully 🎉
+
+🆔 *Booking ID:* ${booking.code}
+
+🛠 *Service:* ${booking.serviceName}
+
+💰 *Final Amount:* ₹${
+      booking.finalAmount || booking.estimatedAmount || 0
+    }
+
+🙏 We hope you had a great experience with *ServiQ*.
+
+⭐ Please share your feedback by sending:
+*Hi*
+
+Then go to:
+*My Bookings → Select Booking → Give Feedback*
+
+Thank you for choosing *ServiQ* 🙌`;
+
+    console.log(
+      "[booking] sending COMPLETED WhatsApp notification",
+      customerPhone
+    );
+
+    await wa.sendText(customerPhone, completionMsg);
+  } catch (err) {
+    console.error(
+      "[booking] failed to send COMPLETED WhatsApp notification",
+      err
+    );
+  }
+
   return booking;
-};
+}
+
+await booking.save();
+
+return booking;
 
 exports.attachMedia = async (bookingId, files) => {
   const booking = await Booking.findById(bookingId);

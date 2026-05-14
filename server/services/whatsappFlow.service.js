@@ -153,12 +153,13 @@ async function sendUrgencyButtons(phone) {
 
 async function sendConfirmationButtons(phone, draft) {
   return wa.sendButtons(phone, {
-    body:
-      `Confirm your booking:\n\n` +
-      `Service: ${draft.serviceName}\n` +
-      `Issue: ${draft.issueType}\n` +
-      `Urgency: ${draft.urgency}\n` +
-      `Address: ${draft.address.line1}`,
+   body:
+  `Confirm your booking:\n\n` +
+  `Customer: ${draft.customerName}\n` +
+  `Service: ${draft.serviceName}\n` +
+  `Issue: ${draft.issueType}\n` +
+  `Urgency: ${draft.urgency}\n` +
+  `Address: ${draft.address.line1}`,
 
     buttons: [
       {
@@ -496,23 +497,59 @@ async function handleIncoming(payload, io) {
       return sendActiveBookingsList(phone);
     }
 
-    case "ASK_ISSUE": {
-      if (incomingValue.toLowerCase() === "back") {
-        session.step = "ASK_SERVICE";
+   case "ASK_ISSUE": {
 
-        await session.save();
+  if (incomingValue.toLowerCase() === "back") {
+    session.step = "ASK_SERVICE";
 
-        return sendServiceList(phone);
-      }
+    await session.save();
 
-      session.draft.issueType = incomingValue;
+    return sendServiceList(phone);
+  }
 
-      session.step = "ASK_URGENCY";
+  session.draft.issueType = incomingValue;
 
-      await session.save();
+  session.step = "ASK_NAME";
 
-      return sendUrgencyButtons(phone);
-    }
+  await session.save();
+
+  return wa.sendText(
+    phone,
+    "👤 Please enter your full name."
+  );
+}
+
+case "ASK_NAME": {
+
+  if (incomingValue.toLowerCase() === "back") {
+    session.step = "ASK_ISSUE";
+
+    await session.save();
+
+    return wa.sendText(
+      phone,
+      "Please describe your issue."
+    );
+  }
+
+if (
+  !/^[a-zA-Z\s]+$/.test(incomingValue) ||
+  incomingValue.trim().length < 3
+) {
+  return wa.sendText(
+    phone,
+    "Please enter a valid full name."
+  );
+}
+  
+  session.draft.customerName = incomingValue;
+
+  session.step = "ASK_URGENCY";
+
+  await session.save();
+
+  return sendUrgencyButtons(phone);
+}
 
     case "ASK_URGENCY": {
       const urgency = incomingValue.toUpperCase();
@@ -646,7 +683,10 @@ async function handleIncoming(payload, io) {
       try {
         const booking = await bookingService.createBooking(
           {
-            customer: { phone },
+            customer: {
+  phone,
+  name: session.draft.customerName,
+},
 
             serviceId: session.draft.serviceId,
 

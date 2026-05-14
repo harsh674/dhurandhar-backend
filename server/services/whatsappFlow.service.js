@@ -551,6 +551,7 @@ session.step = "ASK_URGENCY";
 await session.save();
 
 return sendUrgencyButtons(phone);
+}
 
     case "ASK_URGENCY": {
       const urgency = incomingValue.toUpperCase();

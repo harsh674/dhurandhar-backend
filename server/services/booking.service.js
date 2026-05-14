@@ -229,7 +229,27 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
   try {
     const customerPhone = (booking.customerSnapshot?.phone || "").replace(/^\+/, "");
     const techContact = tech.phone || "\u2014";
-    const customerMsg = `Your booking ${booking.code} has been assigned to ${tech.name} (${techContact}). They will contact you shortly.\nService: ${booking.serviceName}\nIssue: ${booking.issueType}\nLocation: ${address}`;
+    const customerMsg = 
+`👨‍🔧 *Technician Assigned Successfully!*
+
+Hi ${booking.customerSnapshot?.name || "Customer"}, your booking has now been assigned to a technician.
+
+🆔 *Booking ID:* ${booking.code}
+
+👤 *Technician:* ${tech.name}
+
+📞 *Contact:* ${techContact}
+
+🛠 *Service:* ${booking.serviceName}
+
+📋 *Issue:* ${booking.issueType}
+
+📍 *Location:* 
+${address}
+
+⏳ The technician will contact you shortly to coordinate your service visit.
+
+Thank you for choosing *ServiQ* 🙌`;
     console.log("[booking] sending WhatsApp notification to customer", {
       customerPhone,
       customerMsg,

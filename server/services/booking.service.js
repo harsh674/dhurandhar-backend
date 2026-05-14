@@ -3,6 +3,7 @@ const Customer = require("../models/Customer");
 const Service = require("../models/Service");
 const Technician = require("../models/Technician");
 const wa = require("./whatsapp.service");
+const { sendNewBookingMail } = require("./mail.service");
 const axios = require("axios");
 
 const ApiError = require("../utils/ApiError");
@@ -102,6 +103,16 @@ exports.createBooking = async (payload, io) => {
   customer.bookingHistory.push(booking.id);
   customer.totalBookings += 1;
   await customer.save();
+  sendNewBookingMail({
+  customerName: customer.name,
+  phone: customer.phone,
+  serviceType: service.serviceName,
+  address:
+    addr.line1 ||
+    `${addr.city || ""} ${addr.pincode || ""}` ||
+    "N/A",
+  issueDescription: payload.description,
+});
 
   if (io)
     io.emit("booking:new", {

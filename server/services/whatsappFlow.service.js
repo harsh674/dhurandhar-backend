@@ -35,10 +35,20 @@ function extractMessage(msg) {
 
 async function sendWelcomeMenu(phone) {
   return wa.sendButtons(phone, {
-    body: "👋 Welcome to ServiQ\nHow can we help you today?",
+    body:
+      "👋 *Welcome to ServiQ*\n\n" +
+      "Fast, trusted & professional home services at your doorstep 🛠️\n\n" +
+      "Book a service in minutes and get connected with verified technicians near you.",
+
     buttons: [
-      { id: "VIEW_SERVICES", title: "Book a Service" },
-      { id: "CHECK_ACTIVE_BOOKING", title: "My Bookings" },
+      {
+        id: "VIEW_SERVICES",
+        title: "🛠 Book Service",
+      },
+      {
+        id: "CHECK_ACTIVE_BOOKING",
+        title: "📋 My Bookings",
+      },
     ],
   });
 }
@@ -48,15 +58,41 @@ async function sendServiceList(phone) {
     createdAt: 1,
   });
 
+  const serviceIcons = {
+    Plumbing: "🚰",
+    Electrical: "⚡",
+    "AC Repair": "❄️",
+    Cleaning: "🧹",
+    Carpentry: "🪚",
+    Mechanic: "🚗",
+  };
+
+  const serviceDescriptions = {
+    Plumbing: "Leaks, taps & pipe issues",
+    Electrical: "Wiring & switch repairs",
+    "AC Repair": "Cooling & servicing",
+    Cleaning: "Home & office cleaning",
+    Carpentry: "Furniture & woodwork",
+    Mechanic: "Vehicle repair & service",
+  };
+
   const rows = services.map((s) => ({
     id: s._id.toString(),
-    title: s.serviceName,
-    description: `Book ${s.serviceName}`,
+
+    title: `${serviceIcons[s.serviceName] || "🔧"} ${s.serviceName}`,
+
+    description:
+      serviceDescriptions[s.serviceName] ||
+      `Professional ${s.serviceName} service`,
   }));
 
   return wa.sendList(phone, {
-    body: "Please select the service you need:",
+    body:
+      "🛠 *Choose a Service*\n\n" +
+      "Select the service you need and we’ll connect you with the right technician.",
+
     buttonText: "View Services",
+
     sections: [
       {
         title: "Available Services",
@@ -65,7 +101,6 @@ async function sendServiceList(phone) {
     ],
   });
 }
-
 async function sendActiveBookingsList(phone) {
   const activeStatuses = [
     "NEW",

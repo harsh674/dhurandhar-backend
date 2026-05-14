@@ -104,14 +104,20 @@ exports.createBooking = async (payload, io) => {
   customer.totalBookings += 1;
   await customer.save();
   sendNewBookingMail({
-  customerName: customer.name,
+  customerName:
+  customer.name ||
+  booking?.customerSnapshot?.phone ||
+  customer.phone,
   phone: customer.phone,
   serviceType: service.serviceName,
   address:
     addr.line1 ||
     `${addr.city || ""} ${addr.pincode || ""}` ||
     "N/A",
-  issueDescription: payload.description,
+  issueDescription:
+  payload.description ||
+  payload.issueType ||
+  "No issue description",
 });
 
   if (io)

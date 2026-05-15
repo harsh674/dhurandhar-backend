@@ -1005,7 +1005,6 @@ return wa.sendText(
 
 ♻️ *Service:* ${bookingSummary.serviceName}
 
-
 🗂 *Scrap Type:* ${bookingSummary.scrapType || "-"}
 
 ⚖️ *Estimated Weight:* ${

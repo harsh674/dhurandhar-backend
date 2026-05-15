@@ -230,12 +230,44 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
 
   // Notify customer on WhatsApp that technician has been assigned
   try {
-    const customerPhone = (booking.customerSnapshot?.phone || "").replace(/^\+/, "");
-    const techContact = tech.phone || "\u2014";
-    const customerMsg = 
-`👨‍🔧 *Technician Assigned Successfully!*
+  const customerPhone = (
+    booking.customerSnapshot?.phone || ""
+  ).replace(/^\+/, "");
 
-Hi ${booking.customerSnapshot?.name || "Customer"}, your booking has now been assigned to a technician.
+  const techContact = tech.phone || "\u2014";
+
+  const isScrapPickup =
+    booking.serviceName?.toLowerCase() === "scrap pickup";
+
+  const customerMsg =
+    isScrapPickup
+      ? `♻️ *Pickup Partner Assigned Successfully!*
+
+Hi ${
+          booking.customerSnapshot?.name || "Customer"
+        }, your scrap pickup request has now been assigned.
+
+🆔 *Booking ID:* ${booking.code}
+
+👤 *Pickup Partner:* ${tech.name}
+
+📞 *Contact:* ${techContact}
+
+♻️ *Service:* ${booking.serviceName}
+
+🧾 *Scrap Details:* ${booking.issueType}
+
+📍 *Pickup Location:* 
+${address}
+
+⏳ The pickup partner will contact you shortly for scrap collection.
+
+Thank you for using *ServiQ Scrap Pickup* 🙌`
+      : `👨‍🔧 *Technician Assigned Successfully!*
+
+Hi ${
+          booking.customerSnapshot?.name || "Customer"
+        }, your booking has now been assigned to a technician.
 
 🆔 *Booking ID:* ${booking.code}
 
@@ -253,10 +285,14 @@ ${address}
 ⏳ The technician will contact you shortly to coordinate your service visit.
 
 Thank you for choosing *ServiQ* 🙌`;
-    console.log("[booking] sending WhatsApp notification to customer", {
+
+  console.log(
+    "[booking] sending WhatsApp notification to customer",
+    {
       customerPhone,
       customerMsg,
-    });
+    }
+  );
     await wa.sendText(customerPhone, customerMsg);
   } catch (err) {
     console.error('[booking] failed to send WhatsApp notification to customer', err);

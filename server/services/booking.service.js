@@ -239,14 +239,12 @@ exports.assignTechnician = async (bookingId, technicianId, actor) => {
   const isScrapPickup =
     booking.serviceName?.toLowerCase() === "scrap pickup";
 
-  const customerMsg =
-    isScrapPickup
-      ? `♻️ *Pickup Partner Assigned Successfully!*
-? `♻️ *Pickup Partner Assigned Successfully!*
+ const customerMsg = isScrapPickup
+  ? `♻️ *Pickup Partner Assigned Successfully!*
 
 Hi ${
-    booking.customerSnapshot?.name || "Customer"
-  }, your scrap pickup request has now been assigned.
+      booking.customerSnapshot?.name || "Customer"
+    }, your scrap pickup request has now been assigned.
 
 🆔 *Booking ID:* ${booking.code}
 
@@ -274,9 +272,11 @@ ${address}
 ⏳ The pickup partner will contact you shortly for scrap collection.
 
 Thank you for using *ServiQ Scrap Pickup* 🙌`
+  : `👨‍🔧 *Technician Assigned Successfully!*
+
 Hi ${
-          booking.customerSnapshot?.name || "Customer"
-        }, your booking has now been assigned to a technician.
+      booking.customerSnapshot?.name || "Customer"
+    }, your booking has now been assigned to a technician.
 
 🆔 *Booking ID:* ${booking.code}
 

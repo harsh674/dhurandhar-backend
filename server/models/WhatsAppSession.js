@@ -22,6 +22,8 @@ const waSessionSchema = new mongoose.Schema(
         "ASK_LOCATION",
         "ASK_MANUAL_ADDRESS",
         "ASK_MEDIA",
+        "ASK_SCRAP_TYPE",
+        "ASK_SCRAP_WEIGHT",
         "CONFIRM",
         "VIEW_ACTIVE_BOOKINGS",
         "AWAIT_CANCEL_CONFIRM",
@@ -41,6 +43,10 @@ const waSessionSchema = new mongoose.Schema(
       serviceName: String,
 
       issueType: String,
+      // Scrap Pickup
+      scrapType: String,
+      estimatedWeight: Number,
+      scrapPhoto: String,
 
       customerName: String,
 

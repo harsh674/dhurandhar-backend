@@ -34,6 +34,29 @@ const bookingSchema = new mongoose.Schema(
       geo: { lat: Number, lng: Number },
     },
     media: [mediaSchema],
+    // Scrap Pickup Fields
+scrapType: {
+  type: String,
+  enum: ["Plastic", "Paper", "Metal", "Mixed"],
+},
+
+scrapPhoto: String,
+
+estimatedWeight: Number,
+
+actualWeight: Number,
+
+amountPaid: Number,
+
+pickupPartnerId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Technician",
+},
+
+recurringPickup: {
+  type: Boolean,
+  default: false,
+},
 
     // Pricing
     visitCharge: { type: Number, default: 0 },

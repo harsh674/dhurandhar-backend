@@ -409,18 +409,31 @@ booking.commission = isScrapPickup
     const isScrapPickup =
   booking.serviceName?.toLowerCase() === "scrap pickup";
     const completionMsg = isScrapPickup
-  ? `♻️ *Pickup Completed Successfully!*
+? `♻️ *Scrap Pickup Completed Successfully!*
+
+Hi ${booking.customerSnapshot?.name || "Customer"},
+
+Your scrap has been collected successfully ✅
 
 🆔 *Booking ID:* ${booking.code}
 
-⚖️ *Weight:* ${booking.actualWeight || 0} KG
+${
+  booking.actualWeight
+    ? `⚖️ *Collected Weight:* ${booking.actualWeight} KG\n`
+    : ""
+}
 
-💰 *Amount Paid:* ₹${booking.amountPaid || 0}
+${
+  booking.amountPaid
+    ? `💰 *Amount Paid:* ₹${booking.amountPaid}\n`
+    : ""
+}
 
-🙏 Thank you for using *ServiQ Scrap Pickup*.
+♻️ Thank you for choosing *ServiQ Scrap Pickup*.
 
-Book again anytime on WhatsApp 🙌`
-  : `✅ *Service Completed Successfully!*
+We hope to help you recycle more waste responsibly 🌱
+
+📲 Book again anytime on WhatsApp 🙌`
 
 Hi ${booking.customerSnapshot?.name || "Customer"},
 

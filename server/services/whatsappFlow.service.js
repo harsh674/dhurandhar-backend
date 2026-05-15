@@ -255,11 +255,19 @@ async function sendConfirmationButtons(phone, draft) {
   });
 }
 
-async function sendLocationOptions(phone) {
-return wa.sendButtons(phone, {
-  body:
-    "📍 *Choose Your Location Sharing Method*\n\n" +
-    "Sharing your location helps us assign the nearest technician faster.",
+async function sendLocationOptions(
+  phone,
+  isScrapPickup = false
+) {
+
+  return wa.sendButtons(phone, {
+    body:
+      "📍 *Choose Your Location Sharing Method*\n\n" +
+      (
+        isScrapPickup
+          ? "Sharing your location helps us assign the nearest pickup partner faster."
+          : "Sharing your location helps us assign the nearest technician faster."
+      ),
 
   buttons: [
     {
@@ -288,6 +296,28 @@ async function handleIncoming(payload, io) {
   const incomingValue = extractMessage(msg);
 
   const session = await getOrCreateSession(phone);
+
+  async function sendScrapTypeButtons(phone) {
+  return wa.sendButtons(phone, {
+    body:
+      "♻️ *What type of scrap would you like to sell?*\n\nChoose one option below 👇",
+
+    buttons: [
+      {
+        id: "SCRAP_PLASTIC",
+        title: "🧴 Plastic",
+      },
+      {
+        id: "SCRAP_PAPER",
+        title: "📰 Paper",
+      },
+      {
+        id: "SCRAP_METAL",
+        title: "🔩 Metal",
+      },
+    ],
+  });
+}
 
   // if (
   //   ![
@@ -667,10 +697,7 @@ ${examples.map((e) => `• ${e}`).join("\n")}
 if (
   session.draft.serviceName?.toLowerCase() === "scrap pickup"
 ) {
-  return wa.sendText(
-    phone,
-    "♻️ Enter scrap type:\n\nPlastic\nPaper\nMetal\nMixed"
-  );
+ return sendScrapTypeButtons(phone);
 }
 
 return wa.sendText(
@@ -679,25 +706,29 @@ return wa.sendText(
 );
 }
 
-      case "ASK_SCRAP_TYPE": {
+case "ASK_SCRAP_TYPE": {
+
+  const scrapMap = {
+    SCRAP_PLASTIC: "Plastic",
+    SCRAP_PAPER: "Paper",
+    SCRAP_METAL: "Metal",
+  };
+
+  const selectedType =
+    scrapMap[incomingValue] || incomingValue;
 
   const allowedTypes = [
-    "plastic",
-    "paper",
-    "metal",
-    "mixed",
+    "Plastic",
+    "Paper",
+    "Metal",
+    "Mixed",
   ];
 
-  if (!allowedTypes.includes(incomingValue.toLowerCase())) {
-    return wa.sendText(
-      phone,
-      "♻️ Enter scrap type:\n\nPlastic\nPaper\nMetal\nMixed"
-    );
+  if (!allowedTypes.includes(selectedType)) {
+    return sendScrapTypeButtons(phone);
   }
 
-  session.draft.scrapType =
-    incomingValue.charAt(0).toUpperCase() +
-    incomingValue.slice(1).toLowerCase();
+  session.draft.scrapType = selectedType;
 
   session.markModified("draft");
 
@@ -707,7 +738,16 @@ return wa.sendText(
 
   return wa.sendText(
     phone,
-    "⚖️ Enter approximate scrap quantity in KG.\n\nExample: 15"
+    `⚖️ *Approximate Scrap Weight*
+
+Please enter an estimated weight in KG.
+
+Examples:
+• 5
+• 12
+• 25
+
+This helps us assign the right pickup partner faster 🚛`
   );
 }
 
@@ -718,7 +758,7 @@ return wa.sendText(
   if (isNaN(weight) || weight <= 0) {
     return wa.sendText(
       phone,
-      "Please enter valid estimated weight in KG."
+     "⚠️ Please enter a valid estimated weight in KG.\n\nExample: 5"
     );
   }
 
@@ -788,7 +828,10 @@ return sendUrgencyButtons(
 
       await session.save();
 
-      return sendLocationOptions(phone);
+     return sendLocationOptions(
+  phone,
+  session.draft.serviceName === "Scrap Pickup"
+);
     }
 
     case "ASK_LOCATION": {

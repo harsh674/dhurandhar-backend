@@ -166,10 +166,13 @@ async function sendRatingButtons(phone) {
   });
 }
 
-async function sendUrgencyButtons(phone) {
+async function sendUrgencyButtons(
+  phone,
+  isScrapPickup = false
+) {
   return wa.sendButtons(phone, {
- body:
-  session?.draft?.serviceName === "Scrap Pickup"
+body:
+  isScrapPickup
     ? "⏰ *How quickly do you want the pickup?*\n\nThis helps us assign a nearby pickup partner."
     : "⏰ *How urgent is your issue?*\n\nThis helps us prioritize technician assignment.",
 
@@ -764,7 +767,10 @@ session.step = "ASK_URGENCY";
 
 await session.save();
 
-return sendUrgencyButtons(phone);
+return sendUrgencyButtons(
+  phone,
+  session.draft.serviceName === "Scrap Pickup"
+);
 }
 
     case "ASK_URGENCY": {

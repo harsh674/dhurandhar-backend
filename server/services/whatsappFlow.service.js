@@ -168,9 +168,10 @@ async function sendRatingButtons(phone) {
 
 async function sendUrgencyButtons(phone) {
   return wa.sendButtons(phone, {
-  body:
-    "⏰ *How urgent is your issue?*\n\n" +
-    "This helps us prioritize technician assignment.",
+ body:
+  session?.draft?.serviceName === "Scrap Pickup"
+    ? "⏰ *How quickly do you want the pickup?*\n\nThis helps us assign a nearby pickup partner."
+    : "⏰ *How urgent is your issue?*\n\nThis helps us prioritize technician assignment.",
 
   buttons: [
     {
@@ -190,40 +191,64 @@ async function sendUrgencyButtons(phone) {
 }
 
 async function sendConfirmationButtons(phone, draft) {
+
+  const isScrapPickup =
+    draft.serviceName === "Scrap Pickup";
+
   return wa.sendButtons(phone, {
- body:
-  `📋 *Booking Summary*\n\n` +
+    body:
+      `📋 *Booking Summary*\n\n` +
 
-  `👤 *Customer* : ${draft.customerName}\n` +
+      `👤 *Customer* : ${draft.customerName}\n` +
 
-  `🛠 *Service* : ${draft.serviceName}\n` +
+      `🛠 *Service* : ${draft.serviceName}\n` +
 
-  `📌 *Issue* : ${draft.issueType}\n` +
+      `${
+        isScrapPickup
+          ? `♻️ *Scrap Details* : ${draft.issueType}\n`
+          : `📌 *Issue* : ${draft.issueType}\n`
+      }` +
 
-  `🚨 *Urgency* : ${draft.urgency}\n` +
+      `🚨 *Urgency* : ${draft.urgency}\n` +
 
-  `📍 *Location* : ${
-    draft.address.line1 === "WHATS_APP_LOCATION"
-      ? "Live Location Shared"
-      : draft.address?.line1
-  }\n\n` +
+      `${
+        isScrapPickup && draft.scrapType
+          ? `🧾 *Scrap Type* : ${draft.scrapType}\n`
+          : ""
+      }` +
 
-  `Please confirm your booking below 👇`,
+      `${
+        isScrapPickup && draft.estimatedWeight
+          ? `⚖️ *Estimated Weight* : ${draft.estimatedWeight} KG\n`
+          : ""
+      }` +
+
+      `📍 *Location* : ${
+        draft.address.line1 === "WHATS_APP_LOCATION"
+          ? "Live Location Shared"
+          : draft.address?.line1
+      }\n\n` +
+
+      `${
+        isScrapPickup
+          ? "Please confirm your scrap pickup request below 👇"
+          : "Please confirm your booking below 👇"
+      }`,
 
     buttons: [
-  {
-    id: "CONFIRM_BOOKING",
-    title: "✅ Confirm",
-  },
-  {
-    id: "EDIT_BOOKING",
-    title: "✏️ Edit",
-  },
-  {
-    id: "CANCEL_BOOKING",
-    title: "❌ Cancel",
-  },
-],
+      {
+        id: "CONFIRM_BOOKING",
+        title: "✅ Confirm",
+      },
+      {
+        id: "EDIT_BOOKING",
+        title: "✏️ Edit",
+      },
+      {
+        id: "CANCEL_BOOKING",
+        title: "❌ Cancel",
+      },
+    ],
   });
 }
 
@@ -516,14 +541,26 @@ async function handleIncoming(payload, io) {
     ],
   };
 
-  const examples =
-    serviceIssueExamples[service.serviceName] || [
-      "Describe your issue briefly",
-    ];
+const examples =
+  serviceIssueExamples[service.serviceName] || [
+    "Describe your issue briefly",
+  ];
 
-  return wa.sendText(
-    phone,
-    `🛠 *${service.serviceName} Service Selected*
+const isScrapPickup =
+  service.serviceName === "Scrap Pickup";
+
+return wa.sendText(
+  phone,
+  isScrapPickup
+    ? `♻️ *Scrap Pickup Selected*
+
+Please tell us what scrap you want to sell.
+
+Examples:
+${examples.map((e) => `• ${e}`).join("\n")}
+
+⬅️ Type *back* to change service.`
+    : `🛠 *${service.serviceName} Service Selected*
 
 Please briefly describe the issue you're facing.
 
@@ -531,7 +568,7 @@ Example:
 ${examples.map((e) => `• ${e}`).join("\n")}
 
 ⬅️ Type *back* to change service.`,
-  );
+);
 }
 
     case "VIEW_ACTIVE_BOOKINGS": {
@@ -893,13 +930,17 @@ scrapPhoto: session.draft.scrapPhoto,
           bookingId: booking.id,
           code: booking.code,
         });
-
-       const bookingSummary = {
+const bookingSummary = {
   customerName: session.draft.customerName,
   serviceName: session.draft.serviceName,
   issueType: session.draft.issueType,
   urgency: session.draft.urgency,
+  scrapType: session.draft.scrapType,
+  estimatedWeight: session.draft.estimatedWeight,
 };
+
+const isScrapPickup =
+  bookingSummary.serviceName === "Scrap Pickup";
 
 session.step = "IDLE";
 session.draft = {};
@@ -908,7 +949,31 @@ await session.save();
 
 return wa.sendText(
   phone,
-  `✅ *Booking Confirmed Successfully!*
+  isScrapPickup
+    ? `✅ *Scrap Pickup Request Confirmed!*
+
+👤 *Customer:* ${bookingSummary.customerName}
+
+♻️ *Service:* ${bookingSummary.serviceName}
+
+🧾 *Scrap Details:* ${bookingSummary.issueType}
+
+🗂 *Scrap Type:* ${bookingSummary.scrapType || "-"}
+
+⚖️ *Estimated Weight:* ${
+        bookingSummary.estimatedWeight || 0
+      } KG
+
+🚨 *Pickup Priority:* ${bookingSummary.urgency}
+
+🆔 *Booking ID:* ${booking.code}
+
+♻️ Our team is now finding the nearest pickup partner for your request.
+
+⏳ *Expected pickup assignment time:* 10-20 minutes.
+
+Thank you for using *ServiQ Scrap Pickup* 🙌`
+    : `✅ *Booking Confirmed Successfully!*
 
 👤 *Customer:* ${bookingSummary.customerName}
 

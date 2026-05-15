@@ -207,10 +207,10 @@ async function sendConfirmationButtons(phone, draft) {
       `🛠 *Service* : ${draft.serviceName}\n` +
 
       `${
-        isScrapPickup
-          ? `♻️ *Scrap Details* : ${draft.issueType}\n`
-          : `📌 *Issue* : ${draft.issueType}\n`
-      }` +
+  !isScrapPickup
+    ? `📌 *Issue* : ${draft.issueType}\n`
+    : ""
+}` +
 
       `🚨 *Urgency* : ${draft.urgency}\n` +
 

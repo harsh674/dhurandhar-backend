@@ -582,18 +582,18 @@ const examples =
 const isScrapPickup =
   service.serviceName === "Scrap Pickup";
 
+if (isScrapPickup) {
+
+  session.step = "ASK_SCRAP_TYPE";
+
+  await session.save();
+
+  return sendScrapTypeButtons(phone);
+}
+
 return wa.sendText(
   phone,
-  isScrapPickup
-    ? `♻️ *Scrap Pickup Selected*
-
-Please tell us what scrap you want to sell.
-
-Examples:
-${examples.map((e) => `• ${e}`).join("\n")}
-
-⬅️ Type *back* to change service.`
-    : `🛠 *${service.serviceName} Service Selected*
+  `🛠 *${service.serviceName} Service Selected*
 
 Please briefly describe the issue you're facing.
 

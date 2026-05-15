@@ -408,8 +408,8 @@ booking.commission = isScrapPickup
     ).replace(/^\+/, "");
     const isScrapPickup =
   booking.serviceName?.toLowerCase() === "scrap pickup";
-    const completionMsg = isScrapPickup
-? `♻️ *Scrap Pickup Completed Successfully!*
+   const completionMsg = isScrapPickup
+  ? `♻️ *Scrap Pickup Completed Successfully!*
 
 Hi ${booking.customerSnapshot?.name || "Customer"},
 
@@ -419,13 +419,13 @@ Your scrap has been collected successfully ✅
 
 ${
   booking.actualWeight
-    ? `⚖️ *Collected Weight:* ${booking.actualWeight} KG\n`
+    ? `⚖️ *Collected Weight:* ${booking.actualWeight} KG`
     : ""
 }
 
 ${
   booking.amountPaid
-    ? `💰 *Amount Paid:* ₹${booking.amountPaid}\n`
+    ? `💰 *Amount Paid:* ₹${booking.amountPaid}`
     : ""
 }
 
@@ -434,6 +434,7 @@ ${
 We hope to help you recycle more waste responsibly 🌱
 
 📲 Book again anytime on WhatsApp 🙌`
+  : `✅ *Service Completed Successfully!*
 
 Hi ${booking.customerSnapshot?.name || "Customer"},
 

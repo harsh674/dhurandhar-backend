@@ -259,13 +259,11 @@ ${
     ? `🧾 *Scrap Type:* ${booking.scrapType}\n`
     : ""
 }
-
 ${
   booking.estimatedWeight
     ? `⚖️ *Estimated Weight:* ${booking.estimatedWeight} KG\n`
     : ""
 }
-
 📍 *Pickup Location:* 
 ${address}
 

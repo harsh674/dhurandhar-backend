@@ -63,7 +63,7 @@ async function sendServiceList(phone) {
     Electrical: "⚡",
     "AC Repair": "❄️",
     Cleaning: "🧹",
-    Carpentry: "🪚",
+    "Scrap Pickup": "♻️",
     Mechanic: "🚗",
   };
 
@@ -72,7 +72,7 @@ async function sendServiceList(phone) {
     Electrical: "Wiring & switch repairs",
     "AC Repair": "Cooling & servicing",
     Cleaning: "Home & office cleaning",
-    Carpentry: "Furniture & woodwork",
+    "Scrap Pickup": "Paper, plastic & metal scrap pickup",
     Mechanic: "Vehicle repair & service",
   };
 
@@ -503,11 +503,11 @@ async function handleIncoming(payload, io) {
       "Office cleaning",
     ],
 
-    Carpentry: [
-      "Furniture repair",
-      "Door issue",
-      "Woodwork installation",
-    ],
+  "Scrap Pickup": [
+  "Old newspapers",
+  "Plastic waste",
+  "Metal scrap",
+],
 
     Mechanic: [
       "Bike not starting",
@@ -614,6 +614,78 @@ ${examples.map((e) => `• ${e}`).join("\n")}
   session.draft.issueType = incomingValue;
      
   session.markModified("draft");
+  if (
+  session.draft.serviceName?.toLowerCase() === "scrap pickup"
+) {
+  session.step = "ASK_SCRAP_TYPE";
+} else {
+  session.step = "ASK_NAME";
+  }
+
+ await session.save();
+
+if (
+  session.draft.serviceName?.toLowerCase() === "scrap pickup"
+) {
+  return wa.sendText(
+    phone,
+    "♻️ Enter scrap type:\n\nPlastic\nPaper\nMetal\nMixed"
+  );
+}
+
+return wa.sendText(
+  phone,
+  "👤 Please enter your full name for the booking."
+);
+}
+
+      case "ASK_SCRAP_TYPE": {
+
+  const allowedTypes = [
+    "plastic",
+    "paper",
+    "metal",
+    "mixed",
+  ];
+
+  if (!allowedTypes.includes(incomingValue.toLowerCase())) {
+    return wa.sendText(
+      phone,
+      "♻️ Enter scrap type:\n\nPlastic\nPaper\nMetal\nMixed"
+    );
+  }
+
+  session.draft.scrapType =
+    incomingValue.charAt(0).toUpperCase() +
+    incomingValue.slice(1).toLowerCase();
+
+  session.markModified("draft");
+
+  session.step = "ASK_SCRAP_WEIGHT";
+
+  await session.save();
+
+  return wa.sendText(
+    phone,
+    "⚖️ Enter approximate scrap quantity in KG.\n\nExample: 15"
+  );
+}
+
+      case "ASK_SCRAP_WEIGHT": {
+
+  const weight = Number(incomingValue);
+
+  if (isNaN(weight) || weight <= 0) {
+    return wa.sendText(
+      phone,
+      "Please enter valid estimated weight in KG."
+    );
+  }
+
+  session.draft.estimatedWeight = weight;
+
+  session.markModified("draft");
+
   session.step = "ASK_NAME";
 
   await session.save();
@@ -807,6 +879,10 @@ console.log("CUSTOMER NAME:", session.draft.customerName);
             urgency: session.draft.urgency,
 
             address: session.draft.address,
+            // Scrap Pickup
+scrapType: session.draft.scrapType,
+estimatedWeight: session.draft.estimatedWeight,
+scrapPhoto: session.draft.scrapPhoto,
 
             source: "whatsapp",
           },

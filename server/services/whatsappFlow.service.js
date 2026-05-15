@@ -976,7 +976,7 @@ return wa.sendText(
 
 ♻️ Our team is now finding the nearest pickup partner for your request.
 
-⏳ *Expected pickup assignment time:* 10-20 minutes.
+⏳ *Expected pickup assignment time:* 30 min- 1 hours.
 
 Thank you for using *ServiQ Scrap Pickup* 🙌`
     : `✅ *Booking Confirmed Successfully!*

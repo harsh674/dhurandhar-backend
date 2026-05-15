@@ -40,9 +40,26 @@ exports.createBooking = Joi.object({
 });
 
 exports.updateStatus = Joi.object({
-  status: Joi.string().valid(...Object.values(BOOKING_STATUS)).required(),
-  note: Joi.string().max(300).optional(),
-  finalAmount: Joi.number().min(0).optional(),
+  status: Joi.string()
+    .valid(...Object.values(BOOKING_STATUS))
+    .required(),
+
+  note: Joi.string()
+    .max(300)
+    .optional(),
+
+  finalAmount: Joi.number()
+    .min(0)
+    .optional(),
+
+  // Scrap Pickup
+  actualWeight: Joi.number()
+    .min(0)
+    .optional(),
+
+  amountPaid: Joi.number()
+    .min(0)
+    .optional(),
 });
 
 exports.assignTechnician = Joi.object({

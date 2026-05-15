@@ -103,6 +103,11 @@ exports.createBooking = async (payload, io) => {
     description: payload.description,
     urgency: payload.urgency,
     address: addr,
+    // Scrap Pickup Fields
+scrapType: payload.scrapType,
+scrapPhoto: payload.scrapPhoto,
+estimatedWeight: payload.estimatedWeight,
+recurringPickup: payload.recurringPickup || false,
     visitCharge: service.visitCharge,
     estimatedAmount: service.visitCharge,
     status: BOOKING_STATUS.NEW,
@@ -262,7 +267,15 @@ Thank you for choosing *ServiQ* 🙌`;
 
 exports.updateStatus = async (
   bookingId,
-  { status, note, finalAmount },
+  {
+    status,
+    note,
+    finalAmount,
+
+    // Scrap Pickup
+    actualWeight,
+    amountPaid,
+  },
   actor,
 ) => {
   const booking = await Booking.findById(bookingId);
@@ -305,6 +318,14 @@ exports.updateStatus = async (
   }
 
  if (status === BOOKING_STATUS.COMPLETED) {
+   // Scrap Pickup Completion Data
+if (typeof actualWeight === "number") {
+  booking.actualWeight = actualWeight;
+}
+
+if (typeof amountPaid === "number") {
+  booking.amountPaid = amountPaid;
+}
   booking.completedAt = now;
 
   if (typeof finalAmount === "number") {
@@ -315,9 +336,14 @@ exports.updateStatus = async (
     booking.finalAmount = booking.estimatedAmount;
   }
 
-  booking.commission = +(
-    booking.finalAmount * COMMISSION_RATE
-  ).toFixed(2);
+ const isScrapPickup =
+  booking.serviceName?.toLowerCase() === "scrap pickup";
+
+booking.commission = isScrapPickup
+  ? 0
+  : +(
+      booking.finalAmount * COMMISSION_RATE
+    ).toFixed(2);
 
   if (booking.technician) {
     await Technician.findByIdAndUpdate(booking.technician, {
@@ -344,8 +370,21 @@ exports.updateStatus = async (
     const customerPhone = (
       booking.customerSnapshot?.phone || ""
     ).replace(/^\+/, "");
+    const isScrapPickup =
+  booking.serviceName?.toLowerCase() === "scrap pickup";
+    const completionMsg = isScrapPickup
+  ? `♻️ *Pickup Completed Successfully!*
 
-    const completionMsg = `✅ *Service Completed Successfully!*
+🆔 *Booking ID:* ${booking.code}
+
+⚖️ *Weight:* ${booking.actualWeight || 0} KG
+
+💰 *Amount Paid:* ₹${booking.amountPaid || 0}
+
+🙏 Thank you for using *ServiQ Scrap Pickup*.
+
+Book again anytime on WhatsApp 🙌`
+  : `✅ *Service Completed Successfully!*
 
 Hi ${booking.customerSnapshot?.name || "Customer"},
 

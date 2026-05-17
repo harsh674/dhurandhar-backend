@@ -18,7 +18,12 @@ const app = express();
 // Required behind Vercel / proxies for correct IPs and rate-limit
 app.set("trust proxy", 1);
 
-const DEFAULT_ALLOWED = ["http://localhost:5173", "https://iamserviq.netlify.app"];
+const DEFAULT_ALLOWED = [
+  "http://localhost:5173",
+  "https://myserviq.in",
+  "https://www.myserviq.in",
+  "https://iamserviq.netlify.app"
+];
 const allowedOrigins = Array.from(new Set([...(env.corsOrigins || []), ...DEFAULT_ALLOWED]));
 
 const corsOptions = {
